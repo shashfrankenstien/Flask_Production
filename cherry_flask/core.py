@@ -9,6 +9,15 @@ class CherryFlask(object):
 	def __init__(self, app, scheduler=None):
 		self.app = app
 		self.sched = scheduler
+		@app.after_request
+		def teardown(response): # pylint: disable=unused-variable
+			print(cherrypy.serving.response)
+			# if app.config['LOG']:
+			# 	adr = request.environ.get('HTTP_X_REAL_IP', request.environ.get('REMOTE_ADDR'))
+			# 	mth = request.environ.get('REQUEST_METHOD')
+			# 	pth = request.environ.get('PATH_INFO')
+			# 	print(f'''{adr} - [{dt.now().strftime('%d/%b/%Y %H:%M:%S')}] - "{mth} {pth}" - {response.status_code}''')
+			return response
 
 	def run(self, host='0.0.0.0', port=8080, threads=5, debug=False):
 		if not debug: cherrypy.config.update({'engine.autoreload.on' : False})
