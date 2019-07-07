@@ -11,8 +11,9 @@ class CherryFlask(object):
 		self.sched = scheduler
 		@app.after_request
 		def teardown(response): # pylint: disable=unused-variable
-			print(cherrypy.serving.response)
-			print(cherrypy.serving.request.remote)
+			print(vars(cherrypy.serving.response))
+			print(vars(cherrypy.serving.request))
+			print(vars(response))
 			# 	adr = request.environ.get('HTTP_X_REAL_IP', request.environ.get('REMOTE_ADDR'))
 			# 	mth = request.environ.get('REQUEST_METHOD')
 			# 	pth = request.environ.get('PATH_INFO')
