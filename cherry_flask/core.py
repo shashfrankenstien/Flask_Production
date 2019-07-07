@@ -16,7 +16,7 @@ class CherryFlask(object):
 			adr = request.environ.get('HTTP_X_REAL_IP', request.environ.get('REMOTE_ADDR'))
 			mth = request.environ.get('REQUEST_METHOD')
 			pth = request.environ.get('PATH_INFO')
-			print(f'''{adr} - [{dt.now().strftime('%d/%b/%Y %H:%M:%S')}] - "{mth} {pth}" - {response.status_code}''')
+			print(f'''{adr} - [{dt.now().strftime('%m/%d/%Y %H:%M:%S')}] - "{mth} {pth}" - {response.status_code}''')
 			return response
 
 	def run(self, host='0.0.0.0', port=8080, threads=5, debug=False):
