@@ -67,7 +67,7 @@ class Job(object):
 
 	def __repr__(self):
 		return "{} {}. Next run = {}".format(
-			self.__class__, self.func, 
+			self.__class__.__name__, self.func, 
 			str(dt.fromtimestamp(self.next_timestamp)) if self.next_timestamp!=0 else 'Never'
 		)
 
