@@ -163,7 +163,8 @@ class TaskScheduler(object):
 				self.jobs.remove(j)
 
 	def start(self):
-		while True:
+		self._running_auto = True
+		while self._running_auto:
 			try:
 				self.check()
 				time.sleep(self._check_interval)
@@ -171,6 +172,8 @@ class TaskScheduler(object):
 				raise KeyboardInterrupt()
 
 
+	def stop(self):
+		self._running_auto = False
 
 
 

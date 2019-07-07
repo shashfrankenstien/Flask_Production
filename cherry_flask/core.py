@@ -49,3 +49,4 @@ class CherryFlask(object):
 
 	def stop(self):
 		cherrypy.engine.exit()
+		self.sched.stop()
