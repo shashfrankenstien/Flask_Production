@@ -10,7 +10,6 @@ class CherryFlask(object):
 	def __init__(self, app, scheduler=None):
 		self.app = app
 		self.sched = scheduler
-		# if request_environ is not None:
 		@app.after_request
 		def teardown(response): # pylint: disable=unused-variable
 			adr = request.environ.get('HTTP_X_REAL_IP', request.environ.get('REMOTE_ADDR'))

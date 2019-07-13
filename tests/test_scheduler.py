@@ -3,7 +3,7 @@ import time
 from datetime import datetime as dt, timedelta
 from dateutil.parser import parse as date_parse
 os.chdir('..')
-from cherry_flask import TaskScheduler
+from flask_production import TaskScheduler
 
 
 def job(x, y): print(x, y)

@@ -1,8 +1,8 @@
-# CherryFlask
-Cherrypy server for Flask + scheduler 
+# Flask_Production
+Cherrypy prod server for Flask + parallel scheduler plugin
 
 ## Installation
 
 ```sh
-pip install -U git+https://github.com/shashfrankenstien/CherryFlask.git
+pip install -U git+https://github.com/shashfrankenstien/Flask_Production.git
 ```
