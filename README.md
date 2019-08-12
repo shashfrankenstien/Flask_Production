@@ -37,10 +37,3 @@ sched.every("weekday").at("08:00").do(lambda:bar())
 cherry = CherryFlask(app, scheduler=sched)
 cherry.run(host="0.0.0.0", port=8080, threads=5, debug=False)
 ```
-## Contributing
-
-1. Fork it (<https://github.com/shashfrankenstien/Flask_Production/fork>)
-2. Create your feature branch (`git checkout -b feature/fooBar`)
-3. Commit your changes (`git commit -am 'Add some fooBar'`)
-4. Push to the branch (`git push origin feature/fooBar`)
-5. Create a new Pull Request
