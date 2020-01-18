@@ -22,7 +22,7 @@ class Job(object):
 		self.time_string = at
 		self.func = func
 		self.kwargs = kwargs
-	
+
 	def init(self):
 		self.schedule_next_run()
 		return self
@@ -35,7 +35,7 @@ class Job(object):
 		n = dt.now()
 		n = dt(n.year, n.month, n.day, int(h), int(m), 0)
 		ts = self.to_timestamp(n)
-		if self.job_must_run_today() and time.time() < ts+300 and not just_ran: 
+		if self.job_must_run_today() and time.time() < ts+300 and not just_ran:
 			self.next_timestamp = ts
 		else:
 			next_day = n + timedelta(days=1)
@@ -56,18 +56,20 @@ class Job(object):
 		try:
 			print("========== Scheduler Start =========")
 			print("Executing {}".format(self))
+			start_time = time.time()
 			return self.func(**self.kwargs)
 		except Exception as e:
 			print(e)
 		finally:
-			
+			end_time = time.time()
 			self.schedule_next_run(just_ran=True)
+			print( "Finished in {:.2f} minutes".format((end_time-start_time)/60))
 			print("========== Scheduler End =========")
 
 
 	def __repr__(self):
 		return "{} {}. Next run = {}".format(
-			self.__class__.__name__, self.func, 
+			self.__class__.__name__, self.func,
 			str(dt.fromtimestamp(self.next_timestamp)) if self.next_timestamp!=0 else 'Never'
 		)
 
@@ -96,9 +98,9 @@ class RepeatJob(Job):
 	def schedule_next_run(self, just_ran=False):
 		if not isinstance(self.interval, (int, float)):
 			raise Exception("Illegal interval for repeating job. Expected number of seconds")
-		
+
 		if just_ran:
-			self.next_timestamp += self.interval 
+			self.next_timestamp += self.interval
 		else:
 			self.next_timestamp = time.time() + self.interval
 		print(self)
