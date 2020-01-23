@@ -61,9 +61,8 @@ class Job(object):
 		except Exception as e:
 			print(e)
 		finally:
-			end_time = time.time()
+			print( "Finished in {:.2f} minutes".format((time.time()-start_time)/60))
 			self.schedule_next_run(just_ran=True)
-			print( "Finished in {:.2f} minutes".format((end_time-start_time)/60))
 			print("========== Scheduler End =========")
 
 
