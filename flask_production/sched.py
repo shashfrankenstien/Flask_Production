@@ -10,11 +10,11 @@ USHolidays = holidays.US()
 class Job(object):
 
 	RUNABLE_DAYS = {
-		'day': lambda d : True,
-		'weekday': lambda d : d.isoweekday() < 6,
-		'weekend': lambda d : d.isoweekday() > 5,
-		'businessday': lambda d : d not in USHolidays and d.isoweekday() < 6,
-		'holiday': lambda d : d in USHolidays or d.isoweekday() > 5
+		'day': lambda d, hols : True,
+		'weekday': lambda d, hols : d.isoweekday() < 6,
+		'weekend': lambda d, hols : d.isoweekday() > 5,
+		'businessday': lambda d, hols : d not in hols and d.isoweekday() < 6,
+		'holiday': lambda d, hols : d in hols or d.isoweekday() > 5
 	}
 
 	def __init__(self, every, at, func, kwargs):
@@ -23,7 +23,8 @@ class Job(object):
 		self.func = func
 		self.kwargs = kwargs
 
-	def init(self):
+	def init(self, calendar):
+		self.calendar = calendar
 		self.schedule_next_run()
 		return self
 
@@ -35,17 +36,17 @@ class Job(object):
 		n = dt.now()
 		n = dt(n.year, n.month, n.day, int(h), int(m), 0)
 		ts = self.to_timestamp(n)
-		if self.job_must_run_today() and time.time() < ts+300 and not just_ran:
+		if self._job_must_run_today() and time.time() < ts+300 and not just_ran:
 			self.next_timestamp = ts
 		else:
 			next_day = n + timedelta(days=1)
-			while not self.job_must_run_today(next_day):
+			while not self._job_must_run_today(next_day):
 				next_day += timedelta(days=1)
 			self.next_timestamp = self.to_timestamp(next_day)#next_day.timestamp()
 		print(self)
 
-	def job_must_run_today(self, date=None):
-		return self.RUNABLE_DAYS[self.interval](date or dt.now())
+	def _job_must_run_today(self, date=None):
+		return self.RUNABLE_DAYS[self.interval](date or dt.now(), self.calendar)
 
 
 	def is_due(self):
@@ -116,12 +117,16 @@ class JobExpired(Exception):
 
 class TaskScheduler(object):
 
-	def __init__(self, check_interval=5):
+	def __init__(self, check_interval=5, holidays_calendar=None):
 		self.jobs = []
 		self.on = self.every
 		self._check_interval = check_interval
 		self.interval = None
 		self.temp_time = None
+		if holidays_calendar is not None:
+			self.holidays_calendar = holidays_calendar
+		else:
+			self.holidays_calendar = USHolidays
 
 	def __current_timestring(self):
 		return dt.now().strftime("%H:%M")
@@ -150,7 +155,7 @@ class TaskScheduler(object):
 		else:
 			j = Job(self.interval, self.temp_time, func, kwargs)
 
-		j.init()
+		j.init(self.holidays_calendar)
 		self.jobs.append(j)
 		self.temp_time = None
 		self.interval = None

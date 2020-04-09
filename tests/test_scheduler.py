@@ -2,9 +2,8 @@ import os
 import time
 from datetime import datetime as dt, timedelta
 from dateutil.parser import parse as date_parse
-os.chdir('..')
 from flask_production import TaskScheduler
-
+from flask_production.hols import TradingHolidays
 
 def job(x, y): print(x, y)
 
@@ -20,6 +19,19 @@ def test_regular():
 	s = TaskScheduler()
 	s.every("day").at("23:59").do(job, x="hello", y="world")
 	assert (s.jobs[0].next_timestamp==dt.timestamp(d))
+
+
+def test_holidays():
+	s = TaskScheduler() # default holidays calendar
+	s.every("businessday").at("10:00").do(job, x="hello", y="world")
+	assert(s.jobs[0]._job_must_run_today(date_parse("2020-04-09"))==True)
+	assert(s.jobs[0]._job_must_run_today(date_parse("2020-04-10"))==True) #Good Friday is not a US holiday by default
+
+	s = TaskScheduler(holidays_calendar=TradingHolidays())
+	s.every("businessday").at("10:00").do(job, x="hello", y="world")
+	assert(s.jobs[0]._job_must_run_today(date_parse("2020-04-09"))==True)
+	assert(s.jobs[0]._job_must_run_today(date_parse("2020-04-10"))==False) #test Custom Good Friday holiday
+	assert(s.jobs[0]._job_must_run_today(date_parse("2020-04-11"))==False) #saturday
 
 
 def test_onetime():
