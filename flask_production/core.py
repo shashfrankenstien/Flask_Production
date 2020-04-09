@@ -34,8 +34,8 @@ class CherryFlask(object):
 			cherrypy.engine.signal_handler.subscribe()
 		if hasattr(cherrypy.engine, "console_control_handler"):
 			cherrypy.engine.console_control_handler.subscribe()
-		
-		
+
+
 		try:
 			cherrypy.engine.start()
 			if self.sched is not None:
@@ -46,7 +46,7 @@ class CherryFlask(object):
 		except Exception:
 			traceback.print_exc()
 			self.stop()
-			
+
 	def stop(self):
 		cherrypy.engine.exit()
 
