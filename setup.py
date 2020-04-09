@@ -6,6 +6,6 @@ setup(
 	author='Shashank Gopikrishna',
 	author_email='shashank.gopikrishna@gmail.com',
 	packages=['flask_production'],
-	install_requires=['cherrypy', 'monthdelta', 'holidays'],
+	install_requires=['cherrypy', 'monthdelta', 'holidays', 'dateutil'],
 	description='cherrypy prod server for Flask + parallel scheduler plugin',
 )
