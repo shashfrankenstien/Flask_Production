@@ -49,7 +49,7 @@ def test_onetime():
 
 def test_repeat():
 	d = time.time()
-	interval = 2
+	interval = 1
 	s = TaskScheduler()
 	s.every(interval).do(job, x="hello", y="world")
 	assert (abs(s.jobs[0].next_timestamp - (d+interval)) < 0.1)
@@ -60,7 +60,7 @@ def test_repeat():
 
 def test_repeat_parallel():
 	d = time.time()
-	interval = 2
+	interval = 1
 	s = TaskScheduler()
 	s.every(interval).do(job, x="hello", y="world", do_parallel=True)
 	s.every(interval).do(job, x="hello", y="world", do_parallel=True)
@@ -75,10 +75,24 @@ def test_repeat_parallel():
 	assert (abs(s.jobs[0].next_timestamp - s.jobs[1].next_timestamp) < 0.1)
 
 
-# def test_start():
-# 	i = 0
-# 	def task():
-# 		i = i+1
-# 	s = TaskScheduler(check_interval=1)
-# 	s.every(2).do(task)
-# 	t = time.time()
+def test_error_callback():
+	d = time.time()
+	interval = 1
+	error = None
+	err_count = 0
+	def err(e):
+		nonlocal error, err_count
+		error = str(e)
+		err_count += 1
+
+	def failing_job():
+		raise Exception("No Way")
+
+	s = TaskScheduler(on_job_error=err)
+	s.every(interval).do(failing_job, do_parallel=True)
+	s.every(interval).do(failing_job)
+	time.sleep(interval)
+	s.check()
+	time.sleep(0.2)
+	assert(error=="No Way") # err callback was called
+	assert(err_count==2)

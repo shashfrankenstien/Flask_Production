@@ -55,7 +55,7 @@ class Job(object):
 		# print(str(dt.fromtimestamp(time.time())), str(dt.fromtimestamp(self.next_timestamp)), time.time() >= self.next_timestamp)
 		return (time.time() >= self.next_timestamp) and not self.is_running
 
-	def run(self):
+	def run(self, on_error=None):
 		self.is_running = True
 		try:
 			print("========== Scheduler Start =========")
@@ -64,6 +64,7 @@ class Job(object):
 			return self.func(**self.kwargs)
 		except Exception as e:
 			print(e)
+			if on_error is not None: on_error(e) # error callback
 		finally:
 			print( "Finished in {:.2f} minutes".format((time.time()-start_time)/60))
 			self.schedule_next_run(just_ran=True)
@@ -123,8 +124,8 @@ class AsyncJobWrapper(object):
 	def is_due(self):
 		return self.job.is_due()
 
-	def run(self):
-		self.proc = threading.Thread(target=self.job.run)
+	def run(self, *args, **kwargs):
+		self.proc = threading.Thread(target=self.job.run, args=args, kwargs=kwargs)
 		self.proc.daemon = True
 		self.proc.start()
 
@@ -135,7 +136,11 @@ class JobExpired(Exception):
 
 class TaskScheduler(object):
 
-	def __init__(self, check_interval=5, holidays_calendar=None):
+	def __init__(self,
+		check_interval=5,
+		holidays_calendar=None,
+		on_job_error=None):
+
 		self.jobs = []
 		self.on = self.every
 		self._check_interval = check_interval
@@ -145,6 +150,7 @@ class TaskScheduler(object):
 			self.holidays_calendar = holidays_calendar
 		else:
 			self.holidays_calendar = USHolidays
+		self.on_job_error = on_job_error
 
 	def __current_timestring(self):
 		return dt.now().strftime("%H:%M")
@@ -184,7 +190,7 @@ class TaskScheduler(object):
 	def check(self):
 		for j in self.jobs:
 			try:
-				if j.is_due(): j.run()
+				if j.is_due(): j.run(on_error=self.on_job_error)
 			except JobExpired:
 				self.jobs.remove(j)
 
