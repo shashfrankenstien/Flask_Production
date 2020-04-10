@@ -47,17 +47,32 @@ def test_onetime():
 	assert len(s.jobs) == 1
 
 
-
 def test_repeat():
 	d = time.time()
 	interval = 2
 	s = TaskScheduler()
 	s.every(interval).do(job, x="hello", y="world")
-	assert (abs(s.jobs[0].next_timestamp - (d+interval)) < 1)
+	assert (abs(s.jobs[0].next_timestamp - (d+interval)) < 0.1)
 	time.sleep(interval)
 	s.check()
 	assert (abs(s.jobs[0].next_timestamp - (d+(2*interval))) < 0.1)
 
+
+def test_repeat_parallel():
+	d = time.time()
+	interval = 2
+	s = TaskScheduler()
+	s.every(interval).do(job, x="hello", y="world", do_parallel=True)
+	s.every(interval).do(job, x="hello", y="world", do_parallel=True)
+	ts = s.jobs[0].next_timestamp
+	assert (abs(ts - (d+interval)) < 0.1)
+	time.sleep(interval)
+	s.check()
+	assert (s.jobs[0].next_timestamp == ts) # still not rescheduled
+	time.sleep(0.2)
+	assert (s.jobs[0].next_timestamp != ts) # rescheduled parallely
+	assert (abs(s.jobs[0].next_timestamp - (d+(2*interval))) < 0.1)
+	assert (abs(s.jobs[0].next_timestamp - s.jobs[1].next_timestamp) < 0.1)
 
 
 # def test_start():

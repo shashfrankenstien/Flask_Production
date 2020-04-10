@@ -3,6 +3,7 @@ from datetime import timedelta, datetime as dt
 from monthdelta import monthdelta
 import holidays
 import re
+import threading
 
 USHolidays = holidays.US()
 
@@ -22,6 +23,7 @@ class Job(object):
 		self.time_string = at
 		self.func = func
 		self.kwargs = kwargs
+		self.is_running = False
 
 	def init(self, calendar):
 		self.calendar = calendar
@@ -51,9 +53,10 @@ class Job(object):
 
 	def is_due(self):
 		# print(str(dt.fromtimestamp(time.time())), str(dt.fromtimestamp(self.next_timestamp)), time.time() >= self.next_timestamp)
-		return time.time() >= self.next_timestamp
+		return (time.time() >= self.next_timestamp) and not self.is_running
 
 	def run(self):
+		self.is_running = True
 		try:
 			print("========== Scheduler Start =========")
 			print("Executing {}".format(self))
@@ -65,6 +68,7 @@ class Job(object):
 			print( "Finished in {:.2f} minutes".format((time.time()-start_time)/60))
 			self.schedule_next_run(just_ran=True)
 			print("========== Scheduler End =========")
+			self.is_running = False
 
 
 	def __repr__(self):
@@ -90,7 +94,7 @@ class OneTimeJob(Job):
 
 	def is_due(self):
 		if self.next_timestamp==0: raise JobExpired('remove me!')
-		return time.time() >= self.next_timestamp
+		return super().is_due()
 
 
 class RepeatJob(Job):
@@ -105,10 +109,24 @@ class RepeatJob(Job):
 			self.next_timestamp = time.time() + self.interval
 		print(self)
 
+
+
+class AsyncJobWrapper(object):
+
+	def __init__(self, job):
+		self.job = job
+		self.proc = None
+
+	def __getattr__(self, name):
+		return self.job.__getattribute__(name)
+
 	def is_due(self):
-		return time.time() >= self.next_timestamp
+		return self.job.is_due()
 
-
+	def run(self):
+		self.proc = threading.Thread(target=self.job.run)
+		self.proc.daemon = True
+		self.proc.start()
 
 
 class JobExpired(Exception):
@@ -144,7 +162,7 @@ class TaskScheduler(object):
 		self.temp_time = time_string
 		return self
 
-	def do(self, func, **kwargs):
+	def do(self, func, do_parallel=False, **kwargs):
 		if not self.interval: raise Exception('Run .at()/.every().at() before .do()')
 		if not self.temp_time: self.temp_time = self.__current_timestring()
 
@@ -156,6 +174,8 @@ class TaskScheduler(object):
 			j = Job(self.interval, self.temp_time, func, kwargs)
 
 		j.init(self.holidays_calendar)
+		if do_parallel:
+			j = AsyncJobWrapper(j)
 		self.jobs.append(j)
 		self.temp_time = None
 		self.interval = None
@@ -170,12 +190,22 @@ class TaskScheduler(object):
 
 	def start(self):
 		self._running_auto = True
-		while self._running_auto:
-			try:
-				self.check()
-				time.sleep(self._check_interval)
-			except KeyboardInterrupt:
-				raise KeyboardInterrupt()
+		try:
+			while self._running_auto:
+				try:
+					self.check()
+					time.sleep(self._check_interval)
+				except KeyboardInterrupt:
+					print("KeyboardInterrupt")
+					self.stop()
+		finally:
+			print("Stopping. Please wait, checking active async jobs ..")
+			for j in self.jobs:
+				if isinstance(j, AsyncJobWrapper) and j.is_running: # Kill any running parallel tasks
+					j.proc.join()
+					print(j, "exited")
+		print(self, "Done!")
+
 
 
 	def stop(self):
@@ -184,15 +214,26 @@ class TaskScheduler(object):
 
 
 if __name__ == '__main__':
-	def job(x, y): print(x, y)
+	def job(x, y):
+		time.sleep(10)
+		print(x, y)
 
 	s = TaskScheduler()
-	k = s.on('2019-07-16').do(job, x="hello", y="world")
+	k = s.every(2).do(job, x="hello", y="world", do_parallel=True)
+	k = s.every(3).do(job, x="hello3", y="world3", do_parallel=True)
+	# k = s.on('2020-04-09').at("21:02").do(job, parallel=True, x="hello", y="world")
 
-	x = 1
-	while x <10:
-		s.check()
-		x +=1
-		time.sleep(2)
-		print('due -', s.jobs)
-	print(s.jobs)
+	def stopp():
+		time.sleep(40)
+		print("stopping thread")
+		s.stop()
+	t = threading.Thread(target=stopp)
+	t.start()
+	s.start()
+	# x = 1
+	# while x <3:
+	# 	s.check()
+	# 	x +=1
+	# 	time.sleep(5)
+	# 	print('due -', s.jobs)
+	# print(s.jobs)
