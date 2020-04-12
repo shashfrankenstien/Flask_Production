@@ -29,6 +29,7 @@ class Job(object):
 	def init(self, calendar):
 		self.calendar = calendar
 		self.schedule_next_run()
+		print(self)
 		return self
 
 	def to_timestamp(self, d):
