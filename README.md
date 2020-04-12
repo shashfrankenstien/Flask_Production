@@ -33,6 +33,7 @@ app = Flask(__name__)
 sched = TaskScheduler(check_interval=2)
 sched.every(60).do(foo) # Runs every minute
 sched.every("weekday").at("08:00").do(lambda:bar())
+sched.every("weekday").at("09:00").do(lambda:failing()).catch(lambda e: print(e))
 
 cherry = CherryFlask(app, scheduler=sched)
 cherry.run(host="0.0.0.0", port=8080, threads=5, debug=False)

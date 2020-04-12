@@ -76,23 +76,29 @@ def test_repeat_parallel():
 
 
 def test_error_callback():
-	d = time.time()
 	interval = 1
-	error = None
+	errors = []
 	err_count = 0
+
+	def failing_job(msg):
+		raise Exception(msg)
+
 	def err(e):
-		nonlocal error, err_count
-		error = str(e)
+		nonlocal errors, err_count
+		errors.append(str(e))
 		err_count += 1
 
-	def failing_job():
-		raise Exception("No Way")
+	def err_specific(e):
+		nonlocal errors, err_count
+		errors.append(str(e)+"_specific")
+		err_count += 1
 
 	s = TaskScheduler(on_job_error=err)
-	s.every(interval).do(failing_job, do_parallel=True)
-	s.every(interval).do(failing_job)
+	s.every(interval).do(failing_job, msg='one', do_parallel=True)
+	s.every(interval).do(failing_job, msg='two')
+	s.every(interval).do(failing_job, msg='three', do_parallel=True).catch(err_specific)
 	time.sleep(interval)
 	s.check()
 	time.sleep(0.2)
-	assert(error=="No Way") # err callback was called
-	assert(err_count==2)
+	assert(sorted(errors)==sorted(['one', 'two', 'three_specific'])) # err callbacks were called
+	assert(err_count==3)

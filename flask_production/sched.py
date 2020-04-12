@@ -24,6 +24,7 @@ class Job(object):
 		self.func = func
 		self.kwargs = kwargs
 		self.is_running = False
+		self.err_handler = None
 
 	def init(self, calendar):
 		self.calendar = calendar
@@ -45,11 +46,9 @@ class Job(object):
 			while not self._job_must_run_today(next_day):
 				next_day += timedelta(days=1)
 			self.next_timestamp = self.to_timestamp(next_day)#next_day.timestamp()
-		print(self)
 
 	def _job_must_run_today(self, date=None):
 		return self.RUNABLE_DAYS[self.interval](date or dt.now(), self.calendar)
-
 
 	def is_due(self):
 		# print(str(dt.fromtimestamp(time.time())), str(dt.fromtimestamp(self.next_timestamp)), time.time() >= self.next_timestamp)
@@ -58,19 +57,25 @@ class Job(object):
 	def run(self, on_error=None):
 		self.is_running = True
 		try:
-			print("========== Scheduler Start =========")
+			print("========== Job Start =========")
 			print("Executing {}".format(self))
 			start_time = time.time()
 			return self.func(**self.kwargs)
 		except Exception as e:
 			print(e)
-			if on_error is not None: on_error(e) # error callback
+			if self.err_handler is not None:
+				self.err_handler(e) # job specific error callback registered through .catch()
+			elif on_error is not None:
+				on_error(e) # generic error callback from scheduler
 		finally:
 			print( "Finished in {:.2f} minutes".format((time.time()-start_time)/60))
 			self.schedule_next_run(just_ran=True)
-			print("========== Scheduler End =========")
+			print(self)
+			print("========== Job End =========")
 			self.is_running = False
 
+	def catch(self, err_handler):
+		self.err_handler = err_handler
 
 	def __repr__(self):
 		return "{} {}. Next run = {}".format(
@@ -88,10 +93,8 @@ class OneTimeJob(Job):
 
 		if just_ran or dt.now() > n + timedelta(minutes=3):
 			self.next_timestamp = 0
-			return None
-
-		self.next_timestamp = self.to_timestamp(n)
-		print(self)
+		else:
+			self.next_timestamp = self.to_timestamp(n)
 
 	def is_due(self):
 		if self.next_timestamp==0: raise JobExpired('remove me!')
@@ -108,8 +111,6 @@ class RepeatJob(Job):
 			self.next_timestamp += self.interval
 		else:
 			self.next_timestamp = time.time() + self.interval
-		print(self)
-
 
 
 class AsyncJobWrapper(object):
@@ -185,7 +186,7 @@ class TaskScheduler(object):
 		self.jobs.append(j)
 		self.temp_time = None
 		self.interval = None
-		return True
+		return j
 
 	def check(self):
 		for j in self.jobs:
@@ -211,7 +212,6 @@ class TaskScheduler(object):
 					j.proc.join()
 					print(j, "exited")
 		print(self, "Done!")
-
 
 
 	def stop(self):
