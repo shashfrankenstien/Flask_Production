@@ -5,7 +5,9 @@ from dateutil.parser import parse as date_parse
 from flask_production import TaskScheduler
 from flask_production.hols import TradingHolidays
 
-def job(x, y): print(x, y)
+def job(x, y):
+	time.sleep(0.1)
+	print(x, y)
 
 def test_registry():
 	s = TaskScheduler()
