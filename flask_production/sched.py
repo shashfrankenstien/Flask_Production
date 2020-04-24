@@ -15,7 +15,15 @@ class Job(object):
 		'weekday': lambda d, hols : d.isoweekday() < 6,
 		'weekend': lambda d, hols : d.isoweekday() > 5,
 		'businessday': lambda d, hols : d not in hols and d.isoweekday() < 6,
-		'holiday': lambda d, hols : d in hols or d.isoweekday() > 5
+		'holiday': lambda d, hols : d in hols or d.isoweekday() > 5,
+		# days of the week
+		'monday': lambda d, hols: d.isoweekday() == 1,
+		'tuesday': lambda d, hols: d.isoweekday() == 2,
+		'wednesday': lambda d, hols: d.isoweekday() == 3,
+		'thursday': lambda d, hols: d.isoweekday() == 4,
+		'friday': lambda d, hols: d.isoweekday() == 5,
+		'saturday': lambda d, hols: d.isoweekday() == 6,
+		'sunday': lambda d, hols: d.isoweekday() == 7,
 	}
 
 	def __init__(self, every, at, func, kwargs):

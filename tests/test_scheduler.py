@@ -23,6 +23,21 @@ def test_regular():
 	assert (s.jobs[0].next_timestamp==dt.timestamp(d))
 
 
+def test_day_of_week():
+	now = dt.now()
+	today_str = now.strftime("%A").lower()
+	in2sec_str = now.strftime("%H:%M")
+	s = TaskScheduler()
+	s.every(today_str).at(in2sec_str).do(job, x="hello", y=today_str)
+	assert len(s.jobs) == 1
+	time.sleep(0.5)
+	s.check()
+	# test if next run greater than 6 days, less than 8 days from now
+	test_timestamp = time.time()
+	assert s.jobs[0].next_timestamp > test_timestamp+(6*24*60*60)
+	assert s.jobs[0].next_timestamp < test_timestamp+(8*24*60*60)
+
+
 def test_holidays():
 	s = TaskScheduler() # default holidays calendar
 	s.every("businessday").at("10:00").do(job, x="hello", y="world")
