@@ -1,5 +1,6 @@
 import os
 import time
+import threading
 from datetime import datetime as dt, timedelta
 from dateutil.parser import parse as date_parse
 from flask_production import TaskScheduler
@@ -92,6 +93,26 @@ def test_repeat_parallel():
 	assert (abs(s.jobs[0].next_timestamp - s.jobs[1].next_timestamp) < 0.1)
 
 
+def test_parallel_stopper():
+	def job(x, y):
+		time.sleep(2)
+		print(x, y)
+
+	s = TaskScheduler(check_interval=1)
+	s.every(1).do(job, x="hello", y="world", do_parallel=True)
+
+	def stopp():
+		# job will start in 1 second, and finish in 3 seconds. Attempting to stop at the 2 second mark
+		time.sleep(2)
+		print("stopping thread")
+		s.stop()
+	t = threading.Thread(target=stopp)
+	t.start()
+	s.start()
+	assert(any([j.is_running for j in s.jobs])==False) # successfully stopped all parallel tasks
+	print(s.jobs[0].info)
+
+
 def test_error_callback():
 	interval = 1
 	errors = []
@@ -119,3 +140,29 @@ def test_error_callback():
 	time.sleep(0.2)
 	assert(sorted(errors)==sorted(['one', 'two', 'three_specific'])) # err callbacks were called
 	assert(err_count==3)
+	assert(s.jobs[0].did_fail()==True)
+
+
+def test_print_capture():
+	def slow_job(interval):
+		time.sleep(interval)
+		print("Slow job completed")
+
+	interval = 1
+	s = TaskScheduler(check_interval=1)
+	s.every(1).do(slow_job, interval=interval, do_parallel=True)
+	s.check()
+
+	counter = 4
+	while counter>0:
+		print("outside")
+		counter -= 1
+		print('running:', s.jobs[0].is_running)
+		s.check()
+		time.sleep(0.5)
+	print("stopping")
+	s.join()
+	assert('Slow job completed' in s.jobs[0].info['log'])
+	assert('outside' not in s.jobs[0].info['log'])
+	assert('stopping' not in s.jobs[0].info['log'])
+	print(s.jobs[0].info)
