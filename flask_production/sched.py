@@ -20,6 +20,10 @@ USHolidays = holidays.US()
 
 
 class _JobRunLogger(object):
+	'''
+	logging class to capture any print statements within a job
+	also captures start time, end time and error traceback
+	'''
 
 	def __init__(self, log_filepath):
 		self._lock = threading.Lock()
@@ -48,6 +52,7 @@ class _JobRunLogger(object):
 			return self._ended_at
 
 	def _reset(self):
+		'''clear previous run info'''
 		with self._lock:
 			self._run_log = ''
 			self._err_log = ''
@@ -55,7 +60,7 @@ class _JobRunLogger(object):
 			self._ended_at = None
 
 	def _log_callback(self, msg):
-		# writting to stderr since stdout is being redirected here. Using print() will be circular
+		'''writting to stderr since stdout is being redirected here. Using print() will be circular'''
 		sys.stderr.write(msg)
 		if self._log_filepath:
 			logging.info(msg.strip())
@@ -64,7 +69,11 @@ class _JobRunLogger(object):
 
 	@contextmanager
 	def start_capture(self):
-		self._reset()
+		'''
+		begin recording print statements
+		log to file using the logging library if log_filepath is provided
+		'''
+		self._reset() # clear previous run info
 		with self._lock:
 			self._started_at = dt.now()
 		with print_capture(callback=self._log_callback):
@@ -73,21 +82,23 @@ class _JobRunLogger(object):
 			self._ended_at = dt.now()
 
 	def set_error(self):
+		'''called when job throws error'''
 		with self._lock:
 			self._err_log = traceback.format_exc()
 
 	def to_dict(self):
 		with self._lock:
-			return {
-				'log': self._run_log,
-				'err': self._err_log,
-				'start': self._started_at,
-				'end': self._ended_at,
-			}
+			return dict(
+				log=self._run_log,
+				err=self._err_log,
+				start=self._started_at,
+				end=self._ended_at,
+			)
 
 
 
 class Job(object):
+	'''standard job class'''
 
 	RUNABLE_DAYS = {
 		'day': lambda d, hols : True,
@@ -115,6 +126,7 @@ class Job(object):
 		self._err_handler = None
 
 	def init(self, calendar, generic_err_handler=None, log_filepath=None):
+		'''initialize extra attributes of job'''
 		self.calendar = calendar
 		self._generic_err_handler = generic_err_handler
 		self._run_info = _JobRunLogger(log_filepath)
@@ -123,6 +135,7 @@ class Job(object):
 		return self
 
 	def catch(self, err_handler):
+		'''register job specific error handler'''
 		self._err_handler = err_handler
 		return self
 
@@ -131,6 +144,7 @@ class Job(object):
 		return time.mktime(d.timetuple())+d.microsecond/1000000.0
 
 	def schedule_next_run(self, just_ran=False):
+		'''compute timestamp of the next run'''
 		h, m = self.time_string.split(':')
 		n = dt.now()
 		n = dt(n.year, n.month, n.day, int(h), int(m), 0)
@@ -147,12 +161,19 @@ class Job(object):
 		return self.RUNABLE_DAYS[self.interval](date or dt.now(), self.calendar)
 
 	def is_due(self):
+		'''test if job should run now'''
 		return (time.time() >= self.next_timestamp) and not self.is_running
 
 	def did_fail(self):
+		'''test if job failed'''
 		return self._run_info.error != ''
 
 	def run(self):
+		'''
+		begin job run
+		redirected all print statements to _JobRunLogger
+		call error handlers if provided
+		'''
 		with self._run_info.start_capture(): # captures all writes to stdout
 			self.is_running = True
 			try:
@@ -176,9 +197,11 @@ class Job(object):
 
 	@property
 	def info(self):
+		'''property to access job info dict'''
 		op = dict(
 			job=dict(
 				func=self.func.__name__,
+				doc=self.func.__doc__,
 				when=self.interval,
 				at=self.time_string
 			),
@@ -196,6 +219,7 @@ class Job(object):
 
 
 class OneTimeJob(Job):
+	'''type of job that runs only once'''
 
 	def schedule_next_run(self, just_ran=False):
 		H, M = self.time_string.split(':')
@@ -213,6 +237,7 @@ class OneTimeJob(Job):
 
 
 class RepeatJob(Job):
+	'''type of job that runs every n seconds'''
 
 	def schedule_next_run(self, just_ran=False):
 		if not isinstance(self.interval, (int, float)):
@@ -225,6 +250,7 @@ class RepeatJob(Job):
 
 
 class AsyncJobWrapper(object):
+	'''wrapper to run the job on a parallel thread'''
 
 	def __init__(self, job):
 		self.job = job
@@ -247,6 +273,7 @@ class JobExpired(Exception):
 
 
 class TaskScheduler(object):
+	'''task scheduler class to manage and run jobs'''
 
 	def __init__(self,
 		check_interval=5,
@@ -274,15 +301,28 @@ class TaskScheduler(object):
 		return re.match(date_fmt, d) is not None
 
 	def every(self, interval):
+		'''
+		interval is either one of the keys of Job.RUNABLE_DAYS
+		or integer denoting number of seconds for RepeatJob
+		'''
 		self.interval = interval
 		return self
 
 	def at(self, time_string):
+		'''
+		24 hour time string of when to run job
+		example: '15:00' for 3PM
+		'''
 		if not self.interval: self.interval = 'day'
 		self.temp_time = time_string
 		return self
 
 	def do(self, func, do_parallel=False, **kwargs):
+		'''
+		register 'func' for the job
+		run in a prallel thread if do_parallel is True
+		pass kwargs into 'func' at execution
+		'''
 		if not self.interval: raise Exception('Run .at()/.every().at() before .do()')
 		if not self.temp_time: self.temp_time = self.__current_timestring()
 
@@ -306,6 +346,7 @@ class TaskScheduler(object):
 		return j
 
 	def check(self):
+		'''check if a job is due'''
 		for j in self.jobs:
 			try:
 				if j.is_due(): j.run()
@@ -313,6 +354,7 @@ class TaskScheduler(object):
 				self.jobs.remove(j)
 
 	def start(self):
+		'''blocking function that checks for jobs every 'check_interval' seconds'''
 		self._running_auto = True
 		try:
 			while self._running_auto:
@@ -328,11 +370,13 @@ class TaskScheduler(object):
 		print(self, "Done!")
 
 	def join(self):
+		'''wait for any async jobs to complete'''
 		for j in self.jobs:
 			if isinstance(j, AsyncJobWrapper) and j.is_running: # Kill any running parallel tasks
 				j.proc.join()
 				print(j, "exited")
 
 	def stop(self):
+		'''stop job started with .start() method'''
 		self._running_auto = False
 

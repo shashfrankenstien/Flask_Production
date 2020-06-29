@@ -1,6 +1,7 @@
 import os
 import time
 import threading
+import json
 from datetime import datetime as dt, timedelta
 from dateutil.parser import parse as date_parse
 from flask_production import TaskScheduler
@@ -9,6 +10,9 @@ from flask_production.hols import TradingHolidays
 def job(x, y):
 	time.sleep(0.1)
 	print(x, y)
+
+def pretty_print(d):
+	print(json.dumps(d, indent=4, default=str))
 
 def test_registry():
 	s = TaskScheduler()
@@ -110,7 +114,6 @@ def test_parallel_stopper():
 	t.start()
 	s.start()
 	assert(any([j.is_running for j in s.jobs])==False) # successfully stopped all parallel tasks
-	print(s.jobs[0].info)
 
 
 def test_error_callback():
@@ -141,16 +144,17 @@ def test_error_callback():
 	assert(sorted(errors)==sorted(['one', 'two', 'three_specific'])) # err callbacks were called
 	assert(err_count==3)
 	assert(s.jobs[0].did_fail()==True)
+	pretty_print(s.jobs[0].info)
 
 
 def test_print_capture():
-	def slow_job(interval):
-		time.sleep(interval)
+	def slow_job(sleep_time):
+		time.sleep(sleep_time)
 		print("Slow job completed")
 
-	interval = 1
-	s = TaskScheduler(check_interval=1)
-	s.every(1).do(slow_job, interval=interval, do_parallel=True)
+	sleep_time = 1
+	s = TaskScheduler()
+	s.every(1).do(slow_job, sleep_time=sleep_time, do_parallel=True)
 	s.check()
 
 	counter = 4
@@ -165,4 +169,21 @@ def test_print_capture():
 	assert('Slow job completed' in s.jobs[0].info['log'])
 	assert('outside' not in s.jobs[0].info['log'])
 	assert('stopping' not in s.jobs[0].info['log'])
-	print(s.jobs[0].info)
+	pretty_print(s.jobs[0].info)
+
+
+def test_job_docstring():
+	def job_with_descr():
+		'''job test docsting'''
+		print("docstring test")
+
+	def job_without_descr():
+		print("no docstring test")
+
+	s = TaskScheduler()
+	j_w_descr = s.every(1).do(job_with_descr)
+	j_wo_descr = s.every(1).do(job_without_descr)
+
+	assert(j_w_descr.info['job']['doc']=='job test docsting')
+	assert(j_wo_descr.info['job']['doc']==None)
+	pretty_print(j_w_descr.info)

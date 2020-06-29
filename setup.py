@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
 	name='flask_production',
-	version='2.0.2',
+	version='2.0.3',
 	author='Shashank Gopikrishna',
 	author_email='shashank.gopikrishna@gmail.com',
 	packages=['flask_production'],
