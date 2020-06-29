@@ -71,29 +71,29 @@ def test_onetime():
 
 def test_repeat():
 	d = time.time()
-	interval = 1
+	sleep_time = 1
 	s = TaskScheduler()
-	s.every(interval).do(job, x="hello", y="world")
-	assert (abs(s.jobs[0].next_timestamp - (d+interval)) < 0.1)
-	time.sleep(interval)
+	s.every(sleep_time).do(job, x="hello", y="world")
+	assert (abs(s.jobs[0].next_timestamp - (d+sleep_time)) < 0.1)
+	time.sleep(sleep_time+0.5)
 	s.check()
-	assert (abs(s.jobs[0].next_timestamp - (d+(2*interval))) < 0.1)
+	assert (abs(s.jobs[0].next_timestamp - (d+(2*sleep_time))) < 0.1)
 
 
 def test_repeat_parallel():
 	d = time.time()
-	interval = 1
+	sleep_time = 1
 	s = TaskScheduler()
-	s.every(interval).do(job, x="hello", y="world", do_parallel=True)
-	s.every(interval).do(job, x="hello", y="world", do_parallel=True)
+	s.every(sleep_time).do(job, x="hello", y="world", do_parallel=True)
+	s.every(sleep_time).do(job, x="hello", y="world", do_parallel=True)
 	ts = s.jobs[0].next_timestamp
-	assert (abs(ts - (d+interval)) < 0.1)
-	time.sleep(interval)
+	assert (abs(ts - (d+sleep_time)) < 0.1)
+	time.sleep(sleep_time+0.5)
 	s.check()
 	assert (s.jobs[0].next_timestamp == ts) # still not rescheduled
-	time.sleep(0.2)
+	time.sleep(0.5)
 	assert (s.jobs[0].next_timestamp != ts) # rescheduled parallely
-	assert (abs(s.jobs[0].next_timestamp - (d+(2*interval))) < 0.1)
+	assert (abs(s.jobs[0].next_timestamp - (d+(2*sleep_time))) < 0.1)
 	assert (abs(s.jobs[0].next_timestamp - s.jobs[1].next_timestamp) < 0.1)
 
 
@@ -117,7 +117,7 @@ def test_parallel_stopper():
 
 
 def test_error_callback():
-	interval = 1
+	sleep_time = 1
 	errors = []
 	err_count = 0
 
@@ -135,12 +135,12 @@ def test_error_callback():
 		err_count += 1
 
 	s = TaskScheduler(on_job_error=err)
-	s.every(interval).do(failing_job, msg='one', do_parallel=True)
-	s.every(interval).do(failing_job, msg='two')
-	s.every(interval).do(failing_job, msg='three', do_parallel=True).catch(err_specific)
-	time.sleep(interval)
+	s.every(sleep_time).do(failing_job, msg='one', do_parallel=True)
+	s.every(sleep_time).do(failing_job, msg='two')
+	s.every(sleep_time).do(failing_job, msg='three', do_parallel=True).catch(err_specific)
+	time.sleep(sleep_time+0.5)
 	s.check()
-	time.sleep(0.2)
+	time.sleep(0.5)
 	assert(sorted(errors)==sorted(['one', 'two', 'three_specific'])) # err callbacks were called
 	assert(err_count==3)
 	assert(s.jobs[0].did_fail()==True)
