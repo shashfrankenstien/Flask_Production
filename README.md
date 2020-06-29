@@ -2,6 +2,7 @@
 Cherrypy prod server for Flask + parallel scheduler plugin
 
 ![Python 3.6](https://img.shields.io/badge/python-3.6+-blue.svg)
+![pytest](https://github.com/shashfrankenstien/Flask_Production/workflows/pytest/badge.svg)
 
 ## Installation
 
