@@ -60,11 +60,12 @@ class _JobRunLogger(object):
 			self._started_at = None
 			self._ended_at = None
 
-	def _log_callback(self, msg):
+	def _log_callback(self, msg: str):
 		'''
 		writting to stderr since stdout is being redirected here. Using print() will be circular
 		log to file using the logging library if LOGGER handler is set by TaskScheduler
 		'''
+		if msg.strip()=='':return
 		sys.stderr.write(msg)
 		if len(LOGGER.handlers)>0:
 			LOGGER.info(msg.strip())
