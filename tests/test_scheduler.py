@@ -6,6 +6,7 @@ from datetime import datetime as dt, timedelta
 from dateutil.parser import parse as date_parse
 from flask_production import TaskScheduler
 from flask_production.hols import TradingHolidays
+from flask_production.sched import LOGGER
 
 def job(x, y):
 	time.sleep(0.1)
@@ -153,7 +154,8 @@ def test_print_capture():
 		print("Slow job completed")
 
 	sleep_time = 1
-	s = TaskScheduler()
+	log_file_path = 'testlog.log'
+	s = TaskScheduler(log_filepath=log_file_path)
 	s.every(1).do(slow_job, sleep_time=sleep_time, do_parallel=True)
 	s.check()
 
@@ -170,6 +172,15 @@ def test_print_capture():
 	assert('outside' not in s.jobs[0].info['log'])
 	assert('stopping' not in s.jobs[0].info['log'])
 	pretty_print(s.jobs[0].info)
+	# test log file
+	assert(os.path.isfile(log_file_path)==True)
+	with open(log_file_path, 'r') as lf:
+		assert('Slow job completed' in lf.read())
+	for h in LOGGER.handlers:
+		h.close()
+		LOGGER.removeHandler(h)
+	if os.path.isfile(log_file_path): os.remove(log_file_path)
+	assert(os.path.isfile(log_file_path)==False)
 
 
 def test_job_docstring():

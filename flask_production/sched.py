@@ -10,8 +10,11 @@ from contextlib import contextmanager
 import traceback
 import logging
 # default logging configuration
-logging.basicConfig(format='%(message)s', level=logging.INFO)
-logging.captureWarnings(True)
+# logging.captureWarnings(True)
+LOG_FORMATTER = logging.Formatter('%(message)s')
+LOGGER_NAME = 'flask_production'
+LOGGER = logging.getLogger(LOGGER_NAME)
+LOGGER.setLevel(logging.INFO)
 
 
 from ._capture import print_capture
@@ -25,10 +28,8 @@ class _JobRunLogger(object):
 	also captures start time, end time and error traceback
 	'''
 
-	def __init__(self, log_filepath):
+	def __init__(self):
 		self._lock = threading.Lock()
-		self._log_filepath = log_filepath
-		logging.basicConfig(filename=self._log_filepath) # setting filepath for _JobRunLogger
 		self._reset()
 
 	@property
@@ -60,10 +61,13 @@ class _JobRunLogger(object):
 			self._ended_at = None
 
 	def _log_callback(self, msg):
-		'''writting to stderr since stdout is being redirected here. Using print() will be circular'''
+		'''
+		writting to stderr since stdout is being redirected here. Using print() will be circular
+		log to file using the logging library if LOGGER handler is set by TaskScheduler
+		'''
 		sys.stderr.write(msg)
-		if self._log_filepath:
-			logging.info(msg.strip())
+		if len(LOGGER.handlers)>0:
+			LOGGER.info(msg.strip())
 		with self._lock:
 			self._run_log += msg
 
@@ -71,7 +75,6 @@ class _JobRunLogger(object):
 	def start_capture(self):
 		'''
 		begin recording print statements
-		log to file using the logging library if log_filepath is provided
 		'''
 		self._reset() # clear previous run info
 		with self._lock:
@@ -125,11 +128,11 @@ class Job(object):
 		self._generic_err_handler = None
 		self._err_handler = None
 
-	def init(self, calendar, generic_err_handler=None, log_filepath=None):
+	def init(self, calendar, generic_err_handler=None):
 		'''initialize extra attributes of job'''
 		self.calendar = calendar
 		self._generic_err_handler = generic_err_handler
-		self._run_info = _JobRunLogger(log_filepath)
+		self._run_info = _JobRunLogger()
 		self.schedule_next_run()
 		print(self)
 		return self
@@ -292,6 +295,10 @@ class TaskScheduler(object):
 			self.holidays_calendar = USHolidays
 		self.on_job_error = on_job_error
 		self.log_filepath = log_filepath
+		if self.log_filepath is not None:
+			fh = logging.FileHandler(self.log_filepath)
+			fh.setFormatter(LOG_FORMATTER)
+			LOGGER.addHandler(fh)
 
 	def __current_timestring(self):
 		return dt.now().strftime("%H:%M")
@@ -335,8 +342,7 @@ class TaskScheduler(object):
 
 		j.init(
 			calendar=self.holidays_calendar,
-			generic_err_handler=self.on_job_error,
-			log_filepath=self.log_filepath
+			generic_err_handler=self.on_job_error
 		)
 		if do_parallel:
 			j = AsyncJobWrapper(j)
