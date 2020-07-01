@@ -66,6 +66,7 @@ class _JobRunLogger(object):
 		log to file using the logging library if LOGGER handler is set by TaskScheduler
 		'''
 		if msg.strip()=='':return
+		msg = msg.replace('\r\n', '\n') # replace line endings to work correctly
 		sys.stderr.write(msg)
 		if len(LOGGER.handlers)>0:
 			LOGGER.info(msg.strip())
