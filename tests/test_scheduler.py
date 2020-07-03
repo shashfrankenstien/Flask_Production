@@ -15,6 +15,12 @@ def job(x, y):
 def pretty_print(d):
 	print(json.dumps(d, indent=4, default=str))
 
+def teardown_function(function):
+	log_file = 'testlog.log'
+	if os.path.isfile(log_file):
+		os.remove(log_file)
+
+
 def test_registry():
 	s = TaskScheduler()
 	s.every("businessday").at("10:00").do(job, x="hello", y="world")
@@ -168,9 +174,9 @@ def test_print_capture():
 		time.sleep(0.5)
 	print("stopping")
 	s.join()
-	assert('Slow job completed' in s.jobs[0].info['log'])
-	assert('outside' not in s.jobs[0].info['log'])
-	assert('stopping' not in s.jobs[0].info['log'])
+	assert('Slow job completed' in s.jobs[0].info['logs']['log'])
+	assert('outside' not in s.jobs[0].info['logs']['log'])
+	assert('stopping' not in s.jobs[0].info['logs']['log'])
 	pretty_print(s.jobs[0].info)
 	# test log file
 	assert(os.path.isfile(log_file_path)==True)
@@ -195,6 +201,6 @@ def test_job_docstring():
 	j_w_descr = s.every(1).do(job_with_descr)
 	j_wo_descr = s.every(1).do(job_without_descr)
 
-	assert(j_w_descr.info['job']['doc']=='job test docsting')
-	assert(j_wo_descr.info['job']['doc']==None)
+	assert(j_w_descr.info['doc']=='job test docsting')
+	assert(j_wo_descr.info['doc']==None)
 	pretty_print(j_w_descr.info)

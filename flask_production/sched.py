@@ -185,6 +185,7 @@ class Job(object):
 				print("========== Job Start [{}] =========".format(dt.now().strftime("%Y-%m-%d %H:%M:%S")))
 				print("Executing {}".format(self))
 				start_time = time.time()
+				print("*") # job log seperator
 				return self.func(**self.kwargs)
 			except Exception as e:
 				print(e)
@@ -194,6 +195,7 @@ class Job(object):
 				elif self._generic_err_handler is not None:
 					self._generic_err_handler(e) # generic error callback from scheduler
 			finally:
+				print("*") # job log seperator
 				print( "Finished in {:.2f} minutes".format((time.time()-start_time)/60))
 				self.schedule_next_run(just_ran=True)
 				print(self)
@@ -201,25 +203,27 @@ class Job(object):
 				self.is_running = False
 
 	@property
+	def _next_run_dt(self):
+		return dt.fromtimestamp(self.next_timestamp).strftime("%Y-%m-%d %H:%M:%S") if self.next_timestamp!=0 else 'Never'
+
+	@property
 	def info(self):
 		'''property to access job info dict'''
-		op = dict(
-			job=dict(
-				func=self.func.__name__,
-				doc=self.func.__doc__,
-				when=self.interval,
-				at=self.time_string
-			),
-			is_running=self.is_running
+		return dict(
+			func=self.func.__name__,
+			type=self.__class__.__name__,
+			doc=self.func.__doc__,
+			every=self.interval,
+			at=self.time_string,
+			is_running=self.is_running,
+			next_run=self._next_run_dt,
+			logs=self._run_info.to_dict() if hasattr(self, '_run_info') else {}
 		)
-		if hasattr(self, '_run_info'):
-			op.update(self._run_info.to_dict())
-		return op
 
 	def __repr__(self):
 		return "{} {}. Next run = {}".format(
-			self.__class__.__name__, self.func,
-			str(dt.fromtimestamp(self.next_timestamp)) if self.next_timestamp!=0 else 'Never'
+			self.__class__.__name__, self.func.__name__,
+			self._next_run_dt
 		)
 
 

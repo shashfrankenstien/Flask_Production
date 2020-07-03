@@ -45,6 +45,7 @@ class CherryFlask(object):
 				cherrypy.engine.block()
 		except Exception:
 			traceback.print_exc()
+		finally:
 			self.stop()
 
 	def stop(self):
