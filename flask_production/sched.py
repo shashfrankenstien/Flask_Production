@@ -206,8 +206,7 @@ class Job(object):
 	def _next_run_dt(self):
 		return dt.fromtimestamp(self.next_timestamp).strftime("%Y-%m-%d %H:%M:%S") if self.next_timestamp!=0 else 'Never'
 
-	@property
-	def info(self):
+	def to_dict(self):
 		'''property to access job info dict'''
 		return dict(
 			func=self.func.__name__,

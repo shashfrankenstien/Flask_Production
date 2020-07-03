@@ -151,7 +151,7 @@ def test_error_callback():
 	assert(sorted(errors)==sorted(['one', 'two', 'three_specific'])) # err callbacks were called
 	assert(err_count==3)
 	assert(s.jobs[0].did_fail()==True)
-	pretty_print(s.jobs[0].info)
+	pretty_print(s.jobs[0].to_dict())
 
 
 def test_print_capture():
@@ -174,10 +174,11 @@ def test_print_capture():
 		time.sleep(0.5)
 	print("stopping")
 	s.join()
-	assert('Slow job completed' in s.jobs[0].info['logs']['log'])
-	assert('outside' not in s.jobs[0].info['logs']['log'])
-	assert('stopping' not in s.jobs[0].info['logs']['log'])
-	pretty_print(s.jobs[0].info)
+	j0 = s.jobs[0].to_dict()
+	assert('Slow job completed' in j0['logs']['log'])
+	assert('outside' not in j0['logs']['log'])
+	assert('stopping' not in j0['logs']['log'])
+	pretty_print(j0)
 	# test log file
 	assert(os.path.isfile(log_file_path)==True)
 	with open(log_file_path, 'r') as lf:
@@ -201,6 +202,6 @@ def test_job_docstring():
 	j_w_descr = s.every(1).do(job_with_descr)
 	j_wo_descr = s.every(1).do(job_without_descr)
 
-	assert(j_w_descr.info['doc']=='job test docsting')
-	assert(j_wo_descr.info['doc']==None)
-	pretty_print(j_w_descr.info)
+	assert(j_w_descr.to_dict()['doc']=='job test docsting')
+	assert(j_wo_descr.to_dict()['doc']==None)
+	pretty_print(j_w_descr.to_dict())
