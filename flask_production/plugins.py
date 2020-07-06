@@ -13,6 +13,8 @@ def HTML(content, title):
 		</body>
 	</html>'''.format(title, str(content))
 
+def H(index, content):
+	return "<h{i}>{c}</h{i}>".format(c=content, i=index)
 
 def DIV(content, css=[]):
 	if not isinstance(css, (list,set,tuple)):
@@ -37,13 +39,15 @@ def THEAD(headers):
 def TBODY(rows):
 	return "<tbody>{}</tbody>".format(''.join(rows))
 
-def TD(content, css=[]):
+def TD(content, css=[], colspan=1, rowspan=1):
 	if not isinstance(css, (list,set,tuple)):
 		css = [css]
-	if css:
-		return "<td class='{}'>{}</td>".format(' '.join(css), content)
-	else:
-		return "<td>{}</td>".format(content)
+	return "<td class='{}' colspan={} rowspan={}>{}</td>".format(
+		' '.join(css),
+		colspan,
+		rowspan,
+		content
+	)
 
 def TR(row):
 	return "<tr>{}</tr>".format(''.join(row))
@@ -63,7 +67,6 @@ class ReadOnlyTaskMonitor(object):
 				display:flex;
 				flex-direction:column;
 				align-items:center;
-				//overflow:hidden;
 			}
 			h2 { padding-top:10px;}
 			table {
@@ -77,52 +80,84 @@ class ReadOnlyTaskMonitor(object):
 				border: 1px solid black;
 				padding: 5px;
 			}
-			td.grey {background-color:#c2c2c2;}
-			td.yellow {background-color:yellow;}
-			td.green { color:green;}
-			td.red {
-				color:red;
-				-webkit-box-shadow:inset 0px 0px 0px 3px #f00;
-				-moz-box-shadow:inset 0px 0px 0px 3px #f00;
-				box-shadow:inset 0px 0px 0px 3px #f00;
+			th {
+				height:2vh;
+				background-color:#3d3d3d;
+				color:white;
 			}
-			td.title {
+			td.grey {color:#c2c2c2;}
+			td.yellow {background-color:yellow;}
+			td.green {
+				background-color:#d2ffcc;
+				color:green;
+			}
+			td.red {
+				background-color:red;
+				color:white;
 				font-weight:bold;
-				text-align:right;
-				padding-right:20px;
 			}
 			a > button {
 				width:100%;
 				height:100%;
 				cursor:pointer;
 			}
+			.container {
+				width:100%;
+				height:100%;
+				display:flex;
+				flex-direction:row;
+			}
+			.monitor {
+				width: 30vw;
+				height: 100vh;
+				display:flex;
+				flex-direction:column;
+				align-items:center;
+			}
+			.monitor > div {
+				width:90%;
+				overflow-wrap: break-word;
+			}
+			.logs_div {
+				width: 70vw;
+				height: 100vh;
+				display:flex;
+				align-items:center;
+				justify-content:center;
+			}
 			.info_table {
-				flex-grow:1;
-				width:60%;
-				height:15vh;
 				border:none;
+				margin-bottom:20px;
+				width:100%;
 			}
 			.info_table td {
-				width:50%;
 				border:none;
+				width:50%;
+				text-align:left;
+			}
+			td.title {
+				font-weight:bold;
+				text-align:right !important;
+				padding-right:20px;
 			}
 			.log_table {
 				table-layout:fixed;
-				width:90%;
-			}
-			th {
-				height:2vh;
-				background-color:#3d3d3d;
-				color:white;
+				width:97%;
+				height:96vh;
+				margin-top:0px;
+				overflow:hidden;
 			}
 			.log_table td {
-				width:50%;
+				vertical-align: top;
+				overflow:hidden;
+			}
+			.console {
 				background-color:#3d3d3d;
 				color:white;
 			}
-			.log_table td > div {
+			.log_table td.console > div {
 				width:100%;
-				height:68vh;
+				height:92vh;
 				scrollbar-color: grey #3d3d3d;
 				overflow-anchor: none;
 				overflow:scroll;
@@ -135,7 +170,7 @@ class ReadOnlyTaskMonitor(object):
 			.anchor-div {
 				width:100%;
 				overflow-anchor: auto;
-				height: 20px;
+				height: 1px;
 			}
 		</style>
 		'''
@@ -159,7 +194,7 @@ class ReadOnlyTaskMonitor(object):
 		if jdict['is_running']:
 			state = "RUNNING"
 		elif jdict['logs']['err'].strip()!='':
-			state = "ERROR!"
+			state = "ERROR"
 		elif jdict['logs']['end'] is not None and jdict['logs']['log'].strip()!='':
 			state = "SUCCESS"
 		return state
@@ -170,7 +205,7 @@ class ReadOnlyTaskMonitor(object):
 			css = 'grey'
 		elif state=="RUNNING":
 			css = 'yellow'
-		elif state=="ERROR!":
+		elif state=="ERROR":
 			css = 'red'
 		elif state=="SUCCESS":
 			css = 'green'
@@ -224,7 +259,7 @@ class ReadOnlyTaskMonitor(object):
 		'''
 		return self.__html_wrap(
 			self.STYLES,
-			"<h2>{} - Task Monitor</h2>".format(self._display_name),
+			H(2, "{} - Task Monitor".format(self._display_name)),
 			self.__job_dictlist_to_html(d),
 			SCRIPT(auto_reload_script)
 		)
@@ -236,21 +271,30 @@ class ReadOnlyTaskMonitor(object):
 		modTD = lambda t,css=[]: TD("-" if t is None else t, css)
 		state = self.__job_state(jobd)
 		rows = [
-			TR([ titleTD("{} Function".format(self._display_name)), TD(jobd['func']) ]),
-			TR([ titleTD('Description'), TD(htmlify_text(jobd['doc'])) ]),
 			TR([ titleTD("Schedule"), TD(self.__job_schedule_str(jobd)), ]),
 			TR([ titleTD("State"), modTD(state, self.__job_state_css(state)) ]),
 			TR([ titleTD("Time Taken"), modTD(self.__job_duration(jobd)) ]),
 			TR([ titleTD("Next Run In"), "<td id='next-run-in'>-<td>" ]),
 		]
 		info_table = TABLE(tbody=TBODY(rows), css='info_table')
+		description_div = DIV(htmlify_text(jobd['doc'])) if jobd['doc'] is not None else ''
+		monitor_div = DIV(
+			H(2, jobd['func']) + info_table + description_div,
+			css="monitor"
+		)
 
-		log_row = TR([
-			TD( DIV( htmlify_text(jobd['logs']['log']) + DIV('', css='anchor-div') ) ),
-			TD( DIV( htmlify_text(jobd['logs']['err']) + DIV('', css='anchor-div') ) ),
+		logs_row = TR([
+			TD( DIV( htmlify_text(jobd['logs']['log']) + DIV('', css='anchor-div') ), css="console"),
+			TD( DIV( htmlify_text(jobd['logs']['err']) + DIV('', css='anchor-div') ), css="console"),
 		])
 
-		log_table = TABLE(thead=THEAD(['Logs', 'Traceback']), tbody=TBODY(log_row), css='log_table')
+		logs_table = TABLE(thead=THEAD(['Logs', 'Traceback']), tbody=TBODY(logs_row), css='log_table')
+		logs_div = DIV( logs_table, css="logs_div" )
+
+		container = DIV(
+			monitor_div + logs_div,
+			css="container"
+		)
 
 		auto_reload_script = '''
 		let running = {}
@@ -277,7 +321,6 @@ class ReadOnlyTaskMonitor(object):
 
 		return self.__html_wrap(
 			self.STYLES,
-			info_table,
-			log_table,
+			container,
 			SCRIPT(auto_reload_script)
 		)
