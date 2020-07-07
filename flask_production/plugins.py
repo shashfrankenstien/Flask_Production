@@ -260,7 +260,7 @@ class ReadOnlyTaskMonitor(object):
 			state = self.__job_state(jd)
 			d.append({
 				'Id': TD(i),
-				'Name': TD(jd['func']),
+				'Name': TD(jd['func'].replace('<', '&lt;').replace('>', '&gt;')),
 				'Schedule': TD(self.__job_schedule_str(jd)),
 				'Description': TD(jd['doc'].strip()[:30] + "..." if jd['doc'] is not None else "-"),
 				'State': TD(state, css=self.__job_state_css(state)),
@@ -296,8 +296,9 @@ class ReadOnlyTaskMonitor(object):
 		]
 		info_table = TABLE(tbody=TBODY(rows), css='info_table')
 		description_div = DIV(self.__htmlify_text(jobd['doc'])) if jobd['doc'] is not None else ''
+		job_funcname = jobd['func'].replace('<', '&lt;').replace('>', '&gt;')
 		monitor_div = DIV(
-			H(2, jobd['func']) + info_table + description_div,
+			H(2, job_funcname) + info_table + description_div,
 			css="monitor"
 		)
 
