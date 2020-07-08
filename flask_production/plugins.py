@@ -177,7 +177,6 @@ class ReadOnlyTaskMonitor(object):
 			.log_table td.console > div {
 				width:100%;
 				height:92vh;
-				overflow-anchor: none;
 				overflow:scroll;
 				white-space: nowrap;
 				list-style-type: none;
@@ -185,19 +184,15 @@ class ReadOnlyTaskMonitor(object):
 				font-size: 14px;
 				padding-left: 5px;
 			}
-			.anchor-div {
-				width:100%;
-				overflow-anchor: auto;
-				height: 1px;
-			}
 		</style>
 		'''
 
-	def __init__(self, app, sched, endpoint="@taskmonitor", display_name=None):
+	def __init__(self, app, sched, display_name=None, endpoint="@taskmonitor", homepage_refresh=10):
 		self.app = app
 		self.sched = sched
 		self._endpoint = endpoint
 		self._display_name = display_name or self.app.name
+		self._homepage_refresh = homepage_refresh
 		self.create_endpoints()
 
 	def create_endpoints(self):
@@ -253,6 +248,8 @@ class ReadOnlyTaskMonitor(object):
 		return
 
 	def __show_all(self):
+		if len(self.sched.jobs)==0:
+			return 'Nothing here'
 		d = []
 		for i,j in enumerate(self.sched.jobs):
 			jd = j.to_dict()
@@ -273,9 +270,9 @@ class ReadOnlyTaskMonitor(object):
 
 		auto_reload_script = '''
 		window.addEventListener('load', (event) => {{
-			setTimeout(()=>location.reload(), 5000)
+			setTimeout(()=>location.reload(), {}000)
 		}})
-		'''
+		'''.format(self._homepage_refresh)
 		return self.__html_wrap(
 			self.STYLES,
 			H(2, "{} - Task Monitor".format(self._display_name)),
@@ -284,6 +281,8 @@ class ReadOnlyTaskMonitor(object):
 		)
 
 	def __show_one(self, n):
+		if n>=len(self.sched.jobs):
+			return 'Nothing here'
 		jobd = self.sched.jobs[n].to_dict()
 		titleTD = lambda t: TD(t, 'title')
 		state = self.__job_state(jobd)
@@ -303,8 +302,8 @@ class ReadOnlyTaskMonitor(object):
 		)
 
 		logs_row = TR([
-			TD( DIV( self.__htmlify_text(jobd['logs']['log']) + DIV('', css='anchor-div') ), css="console"),
-			TD( DIV( self.__htmlify_text(jobd['logs']['err']) + DIV('', css='anchor-div') ), css="console"),
+			TD( DIV( self.__htmlify_text(jobd['logs']['log']) ), css="console"),
+			TD( DIV( self.__htmlify_text(jobd['logs']['err']) ), css="console"),
 		])
 		logs_table = TABLE(thead=THEAD(['Logs', 'Traceback']), tbody=TBODY(logs_row), css='log_table')
 		logs_div = DIV( logs_table, css="logs_div" )
@@ -317,6 +316,8 @@ class ReadOnlyTaskMonitor(object):
 		let running = {}
 		let next_run = Date.parse("{}")
 		window.addEventListener('load', (event) => {{
+			//scroll to bottom
+			document.getElementsByClassName("log_table")[0].querySelectorAll("div").forEach(d=>d.scrollTo(0,d.scrollHeight))
 			if (running) {{
 				setTimeout(()=>location.reload(), 3000)
 			}} else if ( isNaN(next_run) ) {{
