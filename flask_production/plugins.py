@@ -351,12 +351,6 @@ class ReadOnlyTaskMonitor(object):
 		let next_run = Date.parse("{next_run}")
 		let err_line = {err_line}
 		window.addEventListener('load', (event) => {{
-			//highlight error line
-			if (err_line>=0) {{
-				hljs.initHighlightLinesOnLoad([
-					[{{start: err_line, end: err_line, color: 'rgba(255, 0, 0, 0.4)'}}], // Highlight some lines in the first code block.
-				]);
-			}}
 			//scroll to bottom
 			document.getElementsByClassName("log_table")[0].querySelectorAll("div").forEach(d=>d.scrollTo(0,d.scrollHeight))
 			if (running) {{
@@ -374,6 +368,12 @@ class ReadOnlyTaskMonitor(object):
 						document.getElementById("next-run-in").innerHTML = zd.toISOString().substr(11, 8)
 					}}
 				}}, 1000)
+			}}
+			//highlight error line
+			if (err_line>=0) {{
+				hljs.initHighlightLinesOnLoad([
+					[{{start: err_line, end: err_line, color: 'rgba(255, 0, 0, 0.4)'}}], // Highlight some lines in the first code block.
+				]);
 			}}
 		}});
 		'''.format(
