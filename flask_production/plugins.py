@@ -6,6 +6,11 @@ def HTML(content, title):
 		<head>
 			<meta charset="UTF-8">
 			<meta name="viewport" content="width=device-width, initial-scale=1.0">
+			<link rel="stylesheet"
+				href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/monokai-sublime.min.css">
+			<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js"></script>
+			<script src="https://cdn.jsdelivr.net/gh/TRSasasusu/highlightjs-highlight-lines.js@1.1.6/highlightjs-highlight-lines.min.js"></script>
+			<script>hljs.initHighlightingOnLoad();</script>
 			<title>{}</title>
 		</head>
 		<body>
@@ -55,6 +60,12 @@ def TR(row):
 def SCRIPT(s):
 	return "<script>{}</script>".format(s)
 
+def CODE(s, css=[]):
+	if not isinstance(css, (list,set,tuple)):
+		css = [css]
+	return "<pre><code class='{}'>{}</code></pre>".format(' '.join(css), s)
+
+
 
 class ReadOnlyTaskMonitor(object):
 
@@ -69,7 +80,7 @@ class ReadOnlyTaskMonitor(object):
 				align-items:center;
 			}
 			html {
-				--console-bg: #3d3d3d;
+				--console-bg: #383838;
 				--thumb-bg: grey;
 			}
 			*::-webkit-scrollbar {
@@ -92,7 +103,7 @@ class ReadOnlyTaskMonitor(object):
 				border-spacing: 5px;
 				border-collapse: collapse;
 				border: 1px solid black;
-				width:70%;
+				width:85%;
 				margin-top:20px;
 			}
 			td, th {
@@ -130,19 +141,14 @@ class ReadOnlyTaskMonitor(object):
 				width: 30vw;
 				height: 100vh;
 				display:flex;
-				flex-direction:column;
+				flex-flow: column;
 				align-items:center;
 			}
 			.monitor > div {
-				width:90%;
+				flex: 1 1 auto;
+				width:95%;
 				overflow-wrap: break-word;
-			}
-			.logs_div {
-				width: 70vw;
-				height: 100vh;
-				display:flex;
-				align-items:center;
-				justify-content:center;
+				margin-bottom:2vh;
 			}
 			.info_table {
 				border:none;
@@ -159,10 +165,16 @@ class ReadOnlyTaskMonitor(object):
 				text-align:right !important;
 				padding-right:20px;
 			}
+			.logs_div {
+				width: 70vw;
+				height: 100vh;
+				display:flex;
+				align-items:center;
+				justify-content:center;
+			}
 			.log_table {
 				table-layout:fixed;
 				width:97%;
-				height:96vh;
 				margin-top:0px;
 				overflow:hidden;
 			}
@@ -174,20 +186,23 @@ class ReadOnlyTaskMonitor(object):
 				background-color:var(--console-bg);
 				color:white;
 			}
-			.log_table td.console > div {
+			.console-div {
 				width:100%;
 				height:92vh;
 				overflow:scroll;
 				white-space: nowrap;
 				list-style-type: none;
-				font-family: 'Roboto Mono', monospace;
-				font-size: 14px;
+				font-size: 13px;
 				padding-left: 5px;
+			}
+			pre, code {
+				background-color:transparent !important;
+				overflow:visible !important;
 			}
 		</style>
 		'''
 
-	def __init__(self, app, sched, display_name=None, endpoint="@taskmonitor", homepage_refresh=10):
+	def __init__(self, app, sched, display_name=None, endpoint="@taskmonitor", homepage_refresh=30):
 		self.app = app
 		self.sched = sched
 		self._endpoint = endpoint
@@ -202,10 +217,7 @@ class ReadOnlyTaskMonitor(object):
 	def __html_wrap(self, *args):
 		return HTML(''.join(args), title="{} Task Monitor".format(self._display_name))
 
-	def __htmlify_text(self, t):
-		return str(t).strip().replace("\n", "<br>").replace("\t", "&#9;").replace(' ', '&nbsp;')
-
-	def __job_state(self, jdict):
+	def __state(self, jdict):
 		state = 'READY'
 		if jdict['is_running']:
 			state = "RUNNING"
@@ -215,7 +227,7 @@ class ReadOnlyTaskMonitor(object):
 			state = "SUCCESS"
 		return state
 
-	def __job_state_css(self, state):
+	def __state_css(self, state):
 		css = []
 		if state=="READY":
 			css = 'grey'
@@ -227,7 +239,7 @@ class ReadOnlyTaskMonitor(object):
 			css = 'green'
 		return css
 
-	def __job_duration(self, jdict):
+	def __duration(self, jdict):
 		duration = None
 		if jdict['logs']['start'] is not None and jdict['logs']['end'] is not None:
 			seconds = (jdict['logs']['end']-jdict['logs']['start']).seconds
@@ -241,11 +253,29 @@ class ReadOnlyTaskMonitor(object):
 				duration = "{} seconds".format(seconds)
 		return duration
 
-	def __job_schedule_str(self, jdict):
+	def __schedule_str(self, jdict):
 		return "every {} seconds".format(jdict['every']) if isinstance(jdict['every'], int) else "every {} at {}".format(jdict['every'], jdict['at'])
 
-	def __job_dictlist_to_html(self, d):
-		return
+	def __date_fmt(self, d):
+		return d.strftime("%Y-%m-%d %H:%M:%S") if d is not None else '-'+('&nbsp;'*30)
+
+	def __descrTD(self, d):
+		if d is None: return TD('-')
+		d = d.strip()
+		short_d = d[:30] + "..."
+		return '<td title="{}">{}</td>'.format(
+			d,
+			short_d if len(d)>30 else d
+		)
+
+	def __src_err_line(self, j):
+		if j['logs']['err'].strip()!='':
+			for l in j['logs']['err'].strip().split("\n"):
+				if l.strip():
+					idx = j['src'].find(l.strip())
+					if idx>=0:
+						return j['src'][:idx].count("\n")
+		return -1
 
 	def __show_all(self):
 		if len(self.sched.jobs)==0:
@@ -253,14 +283,16 @@ class ReadOnlyTaskMonitor(object):
 		d = []
 		for i,j in enumerate(self.sched.jobs):
 			jd = j.to_dict()
-			duration = self.__job_duration(jd)
-			state = self.__job_state(jd)
+			duration = self.__duration(jd)
+			state = self.__state(jd)
 			d.append({
 				'Id': TD(i),
 				'Name': TD(jd['func'].replace('<', '&lt;').replace('>', '&gt;')),
-				'Schedule': TD(self.__job_schedule_str(jd)),
-				'Description': TD(jd['doc'].strip()[:30] + "..." if jd['doc'] is not None else "-"),
-				'State': TD(state, css=self.__job_state_css(state)),
+				'Schedule': TD(self.__schedule_str(jd)),
+				'Description': self.__descrTD(jd['doc']),
+				'State': TD(state, css=self.__state_css(state)),
+				'Start': TD(self.__date_fmt(jd['logs']['start'])),
+				'End': TD(self.__date_fmt(jd['logs']['end'])),
 				'Time Taken': TD(duration),
 				'Next Run': TD(jd['next_run']),
 				'More':TD("<a href='/{}/{}'><button>show more</button><a>".format(self._endpoint, i))
@@ -285,16 +317,18 @@ class ReadOnlyTaskMonitor(object):
 			return 'Nothing here'
 		jobd = self.sched.jobs[n].to_dict()
 		titleTD = lambda t: TD(t, 'title')
-		state = self.__job_state(jobd)
+		state = self.__state(jobd)
 
 		rows = [
-			TR([ titleTD("Schedule"), TD(self.__job_schedule_str(jobd)), ]),
-			TR([ titleTD("State"), TD(state, self.__job_state_css(state)) ]),
-			TR([ titleTD("Time Taken"), TD(self.__job_duration(jobd)) ]),
+			TR([ titleTD("Schedule"), TD(self.__schedule_str(jobd)), ]),
+			TR([ titleTD("State"), TD(state, self.__state_css(state)) ]),
+			TR([ titleTD("Start Time"), TD(self.__date_fmt(jobd['logs']['start'])) ]),
+			TR([ titleTD("End Time"), TD(self.__date_fmt(jobd['logs']['end'])) ]),
+			TR([ titleTD("Time Taken"), TD(self.__duration(jobd)) ]),
 			TR([ titleTD("Next Run In"), "<td id='next-run-in'>-<td>" ]),
 		]
 		info_table = TABLE(tbody=TBODY(rows), css='info_table')
-		description_div = DIV(self.__htmlify_text(jobd['doc'])) if jobd['doc'] is not None else ''
+		description_div = DIV( CODE(jobd['src'], css='python'), css=['console', 'console-div'])
 		job_funcname = jobd['func'].replace('<', '&lt;').replace('>', '&gt;')
 		monitor_div = DIV(
 			H(2, job_funcname) + info_table + description_div,
@@ -302,8 +336,8 @@ class ReadOnlyTaskMonitor(object):
 		)
 
 		logs_row = TR([
-			TD( DIV( self.__htmlify_text(jobd['logs']['log']) ), css="console"),
-			TD( DIV( self.__htmlify_text(jobd['logs']['err']) ), css="console"),
+			TD( DIV( CODE(jobd['logs']['log'], css='accesslog'), css='console-div'), css="console"),
+			TD( DIV( CODE(jobd['logs']['err'], css='accesslog'), css='console-div'), css="console"),
 		])
 		logs_table = TABLE(thead=THEAD(['Logs', 'Traceback']), tbody=TBODY(logs_row), css='log_table')
 		logs_div = DIV( logs_table, css="logs_div" )
@@ -313,9 +347,16 @@ class ReadOnlyTaskMonitor(object):
 			css="container"
 		)
 		auto_reload_script = '''
-		let running = {}
-		let next_run = Date.parse("{}")
+		let running = {is_running}
+		let next_run = Date.parse("{next_run}")
+		let err_line = {err_line}
 		window.addEventListener('load', (event) => {{
+			//highlight error line
+			if (err_line>=0) {{
+				hljs.initHighlightLinesOnLoad([
+					[{{start: err_line, end: err_line, color: 'rgba(255, 0, 0, 0.4)'}}], // Highlight some lines in the first code block.
+				]);
+			}}
 			//scroll to bottom
 			document.getElementsByClassName("log_table")[0].querySelectorAll("div").forEach(d=>d.scrollTo(0,d.scrollHeight))
 			if (running) {{
@@ -335,7 +376,11 @@ class ReadOnlyTaskMonitor(object):
 				}}, 1000)
 			}}
 		}});
-		'''.format(int(jobd['is_running']), jobd['next_run'])
+		'''.format(
+			is_running=int(jobd['is_running']),
+			next_run=jobd['next_run'],
+			err_line=self.__src_err_line(jobd)
+		)
 
 		return self.__html_wrap(
 			self.STYLES,

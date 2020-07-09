@@ -5,6 +5,7 @@ from monthdelta import monthdelta
 import holidays
 import re
 import threading
+import inspect
 
 from contextlib import contextmanager
 import traceback
@@ -129,6 +130,7 @@ class Job(object):
 		self.is_running = False
 		self._generic_err_handler = None
 		self._err_handler = None
+		self._func_src_code = inspect.getsource(self.func)
 
 	def init(self, calendar, generic_err_handler=None):
 		'''initialize extra attributes of job'''
@@ -210,8 +212,9 @@ class Job(object):
 		'''property to access job info dict'''
 		return dict(
 			func=self.func.__name__,
-			type=self.__class__.__name__,
+			src=self._func_src_code,
 			doc=self.func.__doc__,
+			type=self.__class__.__name__,
 			every=self.interval,
 			at=self.time_string,
 			is_running=self.is_running,
