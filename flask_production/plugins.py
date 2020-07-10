@@ -71,6 +71,10 @@ class ReadOnlyTaskMonitor(object):
 
 	STYLES = '''
 		<style>
+			html {
+				--console-bg: #333333;
+				--thumb-bg: grey;
+			}
 			body {
 				width:100%;
 				height:100%;
@@ -78,10 +82,6 @@ class ReadOnlyTaskMonitor(object):
 				display:flex;
 				flex-direction:column;
 				align-items:center;
-			}
-			html {
-				--console-bg: #383838;
-				--thumb-bg: grey;
 			}
 			*::-webkit-scrollbar {
 				width: 11px;
@@ -102,12 +102,12 @@ class ReadOnlyTaskMonitor(object):
 			table {
 				border-spacing: 5px;
 				border-collapse: collapse;
-				border: 1px solid black;
+				border: 1px solid grey;
 				width:85%;
 				margin-top:20px;
 			}
 			td, th {
-				border: 1px solid black;
+				border: 1px solid grey;
 				padding: 5px;
 			}
 			th {
@@ -146,13 +146,12 @@ class ReadOnlyTaskMonitor(object):
 			}
 			.monitor > div {
 				flex: 1 1 auto;
-				width:95%;
+				width:100%;
 				overflow-wrap: break-word;
-				margin-bottom:2vh;
 			}
 			.info_table {
 				border:none;
-				margin-bottom:20px;
+				margin-bottom:30px;
 				width:100%;
 			}
 			.info_table td {
@@ -174,26 +173,30 @@ class ReadOnlyTaskMonitor(object):
 			}
 			.log_table {
 				table-layout:fixed;
-				width:97%;
+				width:100%;
+				height:100%;
 				margin-top:0px;
 				overflow:hidden;
 			}
-			.log_table td {
+			.log_table td, .log_table th {
+				border:none;
+				border-left: 1px solid grey;
 				vertical-align: top;
 				overflow:hidden;
 			}
-			.console {
-				background-color:var(--console-bg);
-				color:white;
-			}
 			.console-div {
 				width:100%;
-				height:92vh;
+				top:0px;
+				bottom:0px;
+				height:95vh;
 				overflow:scroll;
 				white-space: nowrap;
 				list-style-type: none;
 				font-size: 13px;
 				padding-left: 5px;
+			}
+			.console-color {
+				background-color:var(--console-bg);
 			}
 			pre, code {
 				background-color:transparent !important;
@@ -328,7 +331,7 @@ class ReadOnlyTaskMonitor(object):
 			TR([ titleTD("Next Run In"), "<td id='next-run-in'>-<td>" ]),
 		]
 		info_table = TABLE(tbody=TBODY(rows), css='info_table')
-		description_div = DIV( CODE(jobd['src'], css='python'), css=['console', 'console-div'])
+		description_div = DIV( CODE(jobd['src'], css='python'), css=['console-color ', 'console-div'])
 		job_funcname = jobd['func'].replace('<', '&lt;').replace('>', '&gt;')
 		monitor_div = DIV(
 			H(2, job_funcname) + info_table + description_div,
@@ -336,8 +339,8 @@ class ReadOnlyTaskMonitor(object):
 		)
 
 		logs_row = TR([
-			TD( DIV( CODE(jobd['logs']['log'], css='accesslog'), css='console-div'), css="console"),
-			TD( DIV( CODE(jobd['logs']['err'], css='accesslog'), css='console-div'), css="console"),
+			TD( DIV( CODE(jobd['logs']['log'], css='accesslog'), css='console-div'), css="console-color "),
+			TD( DIV( CODE(jobd['logs']['err'], css='accesslog'), css='console-div'), css="console-color "),
 		])
 		logs_table = TABLE(thead=THEAD(['Logs', 'Traceback']), tbody=TBODY(logs_row), css='log_table')
 		logs_div = DIV( logs_table, css="logs_div" )
