@@ -202,6 +202,7 @@ class ReadOnlyTaskMonitor(object):
 				background-color:var(--console-bg);
 				color:white;
 			}
+			.brdr {border: 1px solid grey;}
 			pre, code {
 				background-color:transparent !important;
 				overflow:visible !important;
@@ -335,7 +336,7 @@ class ReadOnlyTaskMonitor(object):
 			TR([ titleTD("Next Run In"), "<td id='next-run-in'>-<td>" ]),
 		]
 		info_table = TABLE(tbody=TBODY(rows), css='info_table')
-		description_div = DIV( CODE(jobd['src'], css='python'), css=['console-color ', 'console-div'])
+		description_div = DIV( CODE(jobd['src'], css='python'), css=['console-color ', 'console-div', 'brdr'])
 		job_funcname = jobd['func'].replace('<', '&lt;').replace('>', '&gt;')
 		monitor_div = DIV(
 			H(2, job_funcname) + info_table + description_div,
