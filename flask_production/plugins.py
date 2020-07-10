@@ -10,7 +10,10 @@ def HTML(content, title):
 				href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/monokai-sublime.min.css">
 			<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js"></script>
 			<script src="https://cdn.jsdelivr.net/gh/TRSasasusu/highlightjs-highlight-lines.js@1.1.6/highlightjs-highlight-lines.min.js"></script>
-			<script>hljs.initHighlightingOnLoad();</script>
+			<script>
+				hljs.configure({{languages: ['python', 'accesslog']}});
+				hljs.initHighlightingOnLoad();
+			</script>
 			<title>{}</title>
 		</head>
 		<body>
@@ -197,6 +200,7 @@ class ReadOnlyTaskMonitor(object):
 			}
 			.console-color {
 				background-color:var(--console-bg);
+				color:white;
 			}
 			pre, code {
 				background-color:transparent !important;
@@ -339,8 +343,8 @@ class ReadOnlyTaskMonitor(object):
 		)
 
 		logs_row = TR([
-			TD( DIV( CODE(jobd['logs']['log'], css='accesslog'), css='console-div'), css="console-color "),
-			TD( DIV( CODE(jobd['logs']['err'], css='accesslog'), css='console-div'), css="console-color "),
+			TD( DIV( CODE(jobd['logs']['log'], css='accesslog'), css='console-div'), css="console-color"),
+			TD( DIV( CODE(jobd['logs']['err'], css='accesslog'), css='console-div'), css="console-color"),
 		])
 		logs_table = TABLE(thead=THEAD(['Logs', 'Traceback']), tbody=TBODY(logs_row), css='log_table')
 		logs_div = DIV( logs_table, css="logs_div" )
