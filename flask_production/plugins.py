@@ -355,9 +355,21 @@ class ReadOnlyTaskMonitor(object):
 			css="container"
 		)
 		auto_reload_script = '''
+		Number.prototype.pad = function(size) {{
+			let s = String(this);
+			while (s.length < (size || 2)) {{s = "0" + s;}}
+			return s;
+		}}
 		let running = {is_running}
 		let next_run = Date.parse("{next_run}")
 		let err_line = {err_line}
+		function countdown_str(seconds) {{
+			let hours = Math.floor(seconds / (60*60))
+			seconds -= hours * (60*60)
+			let minutes = Math.floor(seconds / 60)
+			seconds -= minutes * 60
+			return `${{hours.pad()}}:${{minutes.pad()}}:${{Math.floor(seconds).pad()}}`
+		}}
 		window.addEventListener('load', (event) => {{
 			//scroll to bottom
 			document.getElementsByClassName("log_table")[0].querySelectorAll("div").forEach(d=>d.scrollTo(0,d.scrollHeight))
@@ -371,9 +383,7 @@ class ReadOnlyTaskMonitor(object):
 					if (ttr<=0) {{
 						location.reload()
 					}} else {{
-						let zd = new Date(0)
-						zd.setSeconds(Math.round(ttr/1000))
-						document.getElementById("next-run-in").innerHTML = zd.toISOString().substr(11, 8)
+						document.getElementById("next-run-in").innerHTML = countdown_str(ttr/1000)
 					}}
 				}}, 1000)
 			}}
