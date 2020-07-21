@@ -262,7 +262,12 @@ class ReadOnlyTaskMonitor(object):
 		return duration
 
 	def __schedule_str(self, jdict):
-		return "every {} seconds".format(jdict['every']) if isinstance(jdict['every'], int) else "every {} at {}".format(jdict['every'], jdict['at'])
+		if isinstance(jdict['every'], int): # jdict['type']=='RepeatJob'
+			return "every {} seconds".format(jdict['every'])
+		elif jdict['type']=='OneTimeJob':
+			return "on {} at {}".format(jdict['every'], jdict['at'])
+		else:
+			return "every {} at {}".format(jdict['every'], jdict['at'])
 
 	def __date_fmt(self, d):
 		return d.strftime("%Y-%m-%d %H:%M:%S") if d is not None else '-'+('&nbsp;'*30)
