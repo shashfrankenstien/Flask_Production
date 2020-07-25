@@ -269,8 +269,9 @@ class ReadOnlyTaskMonitor(object):
 		else:
 			return "every {} at {}".format(jdict['every'], jdict['at'])
 
-	def __date_fmt(self, d):
-		return d.strftime("%Y-%m-%d %H:%M:%S") if d is not None else '-'+('&nbsp;'*30)
+	def __date_fmt(self, d, fallback=None):
+		fallback = fallback or '-'+('&nbsp;'*30) # a hiphen and some html spaces
+		return d.strftime("%Y-%m-%d %H:%M:%S") if d is not None else fallback
 
 	def __descrTD(self, d):
 		if d is None: return TD('-')
@@ -307,7 +308,7 @@ class ReadOnlyTaskMonitor(object):
 				'Start': TD(self.__date_fmt(jd['logs']['start'])),
 				'End': TD(self.__date_fmt(jd['logs']['end'])),
 				'Time Taken': TD(duration),
-				'Next Run': TD(jd['next_run']),
+				'Next Run': TD(self.__date_fmt(jd['next_run'], "Never")),
 				'More':TD("<a href='/{}/{}'><button>show more</button><a>".format(self._endpoint, i))
 			})
 		rows = [TR(row.values()) for row in d]
@@ -366,7 +367,7 @@ class ReadOnlyTaskMonitor(object):
 			return s;
 		}}
 		let running = {is_running}
-		let next_run = Date.parse("{next_run}")
+		let next_run = {next_run_ts} * 1000 //ms
 		let err_line = {err_line}
 		function countdown_str(seconds) {{
 			let hours = Math.floor(seconds / (60*60))
@@ -380,7 +381,7 @@ class ReadOnlyTaskMonitor(object):
 			document.getElementsByClassName("log_table")[0].querySelectorAll("div").forEach(d=>d.scrollTo(0,d.scrollHeight))
 			if (running) {{
 				setTimeout(()=>location.reload(), 3000)
-			}} else if ( isNaN(next_run) ) {{
+			}} else if ( isNaN(next_run) ) {{ // if not number
 				document.getElementById("next-run-in").innerHTML = 'Never'
 			}} else {{
 				setInterval(()=>{{
@@ -401,7 +402,7 @@ class ReadOnlyTaskMonitor(object):
 		}});
 		'''.format(
 			is_running=int(jobd['is_running']),
-			next_run=jobd['next_run'],
+			next_run_ts=jobd['next_run'].timestamp() if jobd['next_run'] else '"Never"',
 			err_line=self.__src_err_line(jobd)
 		)
 

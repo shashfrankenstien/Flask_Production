@@ -204,9 +204,8 @@ class Job(object):
 				print("========== Job End [{}] =========".format(dt.now().strftime("%Y-%m-%d %H:%M:%S")))
 				self.is_running = False
 
-	@property
 	def _next_run_dt(self):
-		return dt.fromtimestamp(self.next_timestamp).strftime("%Y-%m-%d %H:%M:%S") if self.next_timestamp!=0 else 'Never'
+		return dt.fromtimestamp(self.next_timestamp) if self.next_timestamp!=0 else None
 
 	def to_dict(self):
 		'''property to access job info dict'''
@@ -218,14 +217,15 @@ class Job(object):
 			every=self.interval,
 			at=self.time_string,
 			is_running=self.is_running,
-			next_run=self._next_run_dt,
+			next_run=self._next_run_dt(),
 			logs=self._run_info.to_dict() if hasattr(self, '_run_info') else {}
 		)
 
 	def __repr__(self):
+		d = self._next_run_dt()
 		return "{} {}. Next run = {}".format(
 			self.__class__.__name__, self.func.__name__,
-			self._next_run_dt
+			d.strftime("%Y-%m-%d %H:%M:%S") if isinstance(d, dt) else 'Never'
 		)
 
 
