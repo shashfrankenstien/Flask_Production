@@ -189,13 +189,13 @@ class Job(object):
 				start_time = time.time()
 				print("*") # job log seperator
 				return self.func(**self.kwargs)
-			except Exception as e:
-				print(e)
+			except Exception:
+				err_msg = "Error in <{}>\n\n\n{}".format(self.func.__name__, traceback.format_exc())
 				self._run_info.set_error()
 				if self._err_handler is not None:
-					self._err_handler(e) # job specific error callback registered through .catch()
+					self._err_handler(err_msg) # job specific error callback registered through .catch()
 				elif self._generic_err_handler is not None:
-					self._generic_err_handler(e) # generic error callback from scheduler
+					self._generic_err_handler(err_msg) # generic error callback from scheduler
 			finally:
 				print("*") # job log seperator
 				print( "Finished in {:.2f} minutes".format((time.time()-start_time)/60))

@@ -133,12 +133,14 @@ def test_error_callback():
 
 	def err(e):
 		nonlocal errors, err_count
-		errors.append(str(e))
+		cause = str(e).strip().split()[-1] # get last word from traceback
+		errors.append(cause)
 		err_count += 1
 
 	def err_specific(e):
 		nonlocal errors, err_count
-		errors.append(str(e)+"_specific")
+		cause = str(e).strip().split()[-1] # get last word from traceback
+		errors.append(cause+"_specific")
 		err_count += 1
 
 	s = TaskScheduler(on_job_error=err)
