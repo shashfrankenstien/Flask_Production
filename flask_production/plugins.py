@@ -87,7 +87,8 @@ class ReadOnlyTaskMonitor(object):
 				align-items:center;
 			}
 			*::-webkit-scrollbar {
-				width: 11px;
+				width: 14px !important;
+				height: 14px !important;
 			}
 			* {
 				scrollbar-width: thin;
@@ -101,6 +102,9 @@ class ReadOnlyTaskMonitor(object):
 				border-radius: 6px;
 				border: 3px solid var(--console-bg);
 			}
+			*::-webkit-scrollbar-corner {
+				background-color: var(--console-bg) ;
+			}
 			h2 { padding-top:10px;}
 			table {
 				border-spacing: 5px;
@@ -109,6 +113,7 @@ class ReadOnlyTaskMonitor(object):
 				width:85%;
 				margin-top:20px;
 			}
+			tr:hover { background-color: #ededed; }
 			td, th {
 				border: 1px solid grey;
 				padding: 5px;
@@ -210,12 +215,13 @@ class ReadOnlyTaskMonitor(object):
 		</style>
 		'''
 
-	def __init__(self, app, sched, display_name=None, endpoint="@taskmonitor", homepage_refresh=30):
+	def __init__(self, app, sched, display_name=None, endpoint="@taskmonitor", homepage_refresh=30, taskpage_refresh=5):
 		self.app = app
 		self.sched = sched
 		self._endpoint = endpoint
 		self._display_name = display_name or self.app.name
 		self._homepage_refresh = homepage_refresh
+		self._taskpage_refresh = taskpage_refresh
 		self.create_endpoints()
 
 	def create_endpoints(self):
@@ -380,7 +386,7 @@ class ReadOnlyTaskMonitor(object):
 			//scroll to bottom
 			document.getElementsByClassName("log_table")[0].querySelectorAll("div").forEach(d=>d.scrollTo(0,d.scrollHeight))
 			if (running) {{
-				setTimeout(()=>location.reload(), 3000)
+				setTimeout(()=>location.reload(), {taskpage_refresh}000)
 			}} else if ( isNaN(next_run) ) {{ // if not number
 				document.getElementById("next-run-in").innerHTML = 'Never'
 			}} else {{
@@ -403,7 +409,8 @@ class ReadOnlyTaskMonitor(object):
 		'''.format(
 			is_running=int(jobd['is_running']),
 			next_run_ts=jobd['next_run'].timestamp() if jobd['next_run'] else '"Never"',
-			err_line=self.__src_err_line(jobd)
+			err_line=self.__src_err_line(jobd),
+			taskpage_refresh=self._taskpage_refresh
 		)
 
 		return self.__html_wrap(
