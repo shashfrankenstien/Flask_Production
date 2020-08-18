@@ -1,3 +1,4 @@
+from datetime import datetime as dt
 
 def HTML(content, title):
 	return '''
@@ -23,6 +24,9 @@ def HTML(content, title):
 
 def H(index, content):
 	return "<h{i}>{c}</h{i}>".format(c=content, i=index)
+
+def SPAN(content):
+	return "<span>{c}</span>".format(c=content)
 
 def DIV(content, css=[]):
 	if not isinstance(css, (list,set,tuple)):
@@ -216,6 +220,7 @@ class ReadOnlyTaskMonitor(object):
 		'''
 
 	def __init__(self, app, sched, display_name=None, endpoint="@taskmonitor", homepage_refresh=30, taskpage_refresh=5):
+		self._init_dt = dt.now().strftime("%m/%d/%Y %I:%M %p") # preformatted start time
 		self.app = app
 		self.sched = sched
 		self._endpoint = endpoint
@@ -328,6 +333,7 @@ class ReadOnlyTaskMonitor(object):
 		return self.__html_wrap(
 			self.STYLES,
 			H(2, "{} - Task Monitor".format(self._display_name)),
+			SPAN("Running since {}".format(self._init_dt)),
 			all_jobs_table,
 			SCRIPT(auto_reload_script)
 		)
