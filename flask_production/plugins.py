@@ -11,12 +11,6 @@ def HTML(content, title):
 			<script src="https://cdnjs.cloudflare.com/ajax/libs/tablesort/5.2.1/tablesort.min.js"
 				integrity="sha512-F/gIMdDfda6OD2rnzt/Iyp2V9JLHlFQ+EUyixDg9+rkwjqgW1snpkpx7FD5FV1+gG2fmFj7I3r6ReQDUidHelA=="
 				crossorigin="anonymous"></script>
-			<script src="https://cdnjs.cloudflare.com/ajax/libs/tablesort/5.2.1/sorts/tablesort.date.min.js"
-				integrity="sha512-UK6zo9SpqelwjFJnlPkp/BY3Ce/6kJuJRHhjgNHKnNLfPImnyRCSmXhnbAqxswjZwYIuJmQasZIvT+tFI5SxBQ=="
-				crossorigin="anonymous"></script>
-			<script src="https://cdnjs.cloudflare.com/ajax/libs/tablesort/5.2.1/sorts/tablesort.number.min.js"
-				integrity="sha512-dRD755QRxlybm0h3LXXIGrFcjNakuxW3reZqnPtUkMv6YsSWoJf+slPjY5v4lZvx2ss+wBZQFegepmA7a2W9eA=="
-				crossorigin="anonymous"></script>
 			<link rel="stylesheet"
 				href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/monokai-sublime.min.css">
 			<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js"></script>
@@ -63,13 +57,15 @@ def THEAD(th):
 def TBODY(rows):
 	return "<tbody>{}</tbody>".format(''.join(rows))
 
-def TD(content, css=[], colspan=1, rowspan=1):
+def TD(content, css=[], colspan=1, rowspan=1, attrs={}):
 	if not isinstance(css, (list,set,tuple)):
 		css = [css]
-	return "<td class='{}' colspan={} rowspan={}>{}</td>".format(
+	attrs = ' '.join(["{}='{}'".format(k,v) for k,v in attrs.items()])
+	return "<td class='{}' colspan={} rowspan={} {}>{}</td>".format(
 		' '.join(css),
 		colspan,
 		rowspan,
+		attrs,
 		content if content is not None else "-"
 	)
 
@@ -128,7 +124,7 @@ class ReadOnlyTaskMonitor(object):
 				content: '';
 				float: right;
 				margin-top: 7px;
-				border-width: 0 4px 4px;
+				border-width: 4px 4px 0;
 				border-style: solid;
 				border-color: #e3e3e3 transparent;
 				visibility: hidden;
@@ -138,8 +134,7 @@ class ReadOnlyTaskMonitor(object):
 				user-select: none;
 			}
 			th[aria-sort=ascending]:not(.no-sort):after { /*tablesort.css*/
-				border-bottom: none;
-				border-width: 4px 4px 0;
+				border-width: 0 4px 4px;
 			}
 			th[aria-sort]:not(.no-sort):after { /*tablesort.css*/
 				visibility: visible;
@@ -319,6 +314,9 @@ class ReadOnlyTaskMonitor(object):
 		fallback = fallback or '-'+('&nbsp;'*30) # a hiphen and some html spaces
 		return d.strftime("%Y-%m-%d %H:%M:%S") if d is not None else fallback
 
+	def __date_sort_attr(self, d):
+		return {'data-sort': d.timestamp() if d is not None else 0}
+
 	def __descrTD(self, d):
 		if d is None: return TD('-')
 		d = d.strip()
@@ -346,24 +344,27 @@ class ReadOnlyTaskMonitor(object):
 			jd = j.to_dict()
 			duration = self.__duration(jd)
 			state = self.__state(jd)
+			start_dt = jd['logs']['start']
+			end_dt = jd['logs']['end']
+			next_dt = jd['next_run']
 			d.append(OrderedDict({
 				'Id': TD(i),
 				'Name': TD(jd['func'].replace('<', '&lt;').replace('>', '&gt;')),
 				'Schedule': TD(self.__schedule_str(jd)),
 				'Description': self.__descrTD(jd['doc']),
 				'State': TD(state, css=self.__state_css(state)),
-				'Start': TD(self.__date_fmt(jd['logs']['start'])),
-				'End': TD(self.__date_fmt(jd['logs']['end'])),
+				'Start': TD(self.__date_fmt(start_dt), attrs=self.__date_sort_attr(start_dt)),
+				'End': TD(self.__date_fmt(end_dt), attrs=self.__date_sort_attr(end_dt)),
 				'Time Taken': TD(duration),
-				'Next Run': TD(self.__date_fmt(jd['next_run'], "Never")),
+				'Next Run': TD(self.__date_fmt(next_dt, "Never"), attrs=self.__date_sort_attr(next_dt)),
 				'More':TD("<a href='/{}/{}'><button>show more</button><a>".format(self._endpoint, i))
 			}))
 		rows = [TR(row.values()) for row in d]
-		head = [TH(th, default_sort=(th == "Next Run") ) for th in d[0].keys()]	# apply sorting to next run
+		head = [TH(th, default_sort=(th=="Next Run") ) for th in d[0].keys()]	# apply sorting to 'next run'
 		all_jobs_table = TABLE(thead=THEAD(head), tbody=TBODY(rows), elem_id=table_id)
 
 		auto_reload_script = '''
-		var sorter = new Tablesort(document.getElementById('{}'), {{descending: true}});
+		new Tablesort(document.getElementById('{}'));
 		window.addEventListener('load', (event) => {{
 			setTimeout(()=>location.reload(), {}000)
 		}})
