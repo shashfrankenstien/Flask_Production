@@ -1,4 +1,5 @@
 from datetime import datetime as dt
+from collections import OrderedDict
 
 def HTML(content, title):
 	return '''
@@ -7,6 +8,15 @@ def HTML(content, title):
 		<head>
 			<meta charset="UTF-8">
 			<meta name="viewport" content="width=device-width, initial-scale=1.0">
+			<script src="https://cdnjs.cloudflare.com/ajax/libs/tablesort/5.2.1/tablesort.min.js"
+				integrity="sha512-F/gIMdDfda6OD2rnzt/Iyp2V9JLHlFQ+EUyixDg9+rkwjqgW1snpkpx7FD5FV1+gG2fmFj7I3r6ReQDUidHelA=="
+				crossorigin="anonymous"></script>
+			<script src="https://cdnjs.cloudflare.com/ajax/libs/tablesort/5.2.1/sorts/tablesort.date.min.js"
+				integrity="sha512-UK6zo9SpqelwjFJnlPkp/BY3Ce/6kJuJRHhjgNHKnNLfPImnyRCSmXhnbAqxswjZwYIuJmQasZIvT+tFI5SxBQ=="
+				crossorigin="anonymous"></script>
+			<script src="https://cdnjs.cloudflare.com/ajax/libs/tablesort/5.2.1/sorts/tablesort.number.min.js"
+				integrity="sha512-dRD755QRxlybm0h3LXXIGrFcjNakuxW3reZqnPtUkMv6YsSWoJf+slPjY5v4lZvx2ss+wBZQFegepmA7a2W9eA=="
+				crossorigin="anonymous"></script>
 			<link rel="stylesheet"
 				href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/monokai-sublime.min.css">
 			<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js"></script>
@@ -36,16 +46,18 @@ def DIV(content, css=[]):
 	else:
 		return "<div>{}</div>".format(content)
 
-def TABLE(thead='', tbody='', css=[]):
+def TABLE(thead='', tbody='', css=[], elem_id=''):
 	if not isinstance(css, (list,set,tuple)):
 		css = [css]
 	if css:
-		return "<table class='{}'>{}{}</table>".format(' '.join(css), thead, tbody)
+		return "<table class='{}' id='{}'>{}{}</table>".format(' '.join(css), elem_id, thead, tbody)
 	else:
-		return "<table>{}{}</table>".format(thead, tbody)
+		return "<table id='{}'>{}{}</table>".format(elem_id, thead, tbody)
 
-def THEAD(headers):
-	th = ["<th>{}</th>".format(h) for h in headers]
+def TH(h, default_sort=False):
+	return "<th {}>{}</th>".format("data-sort-default" if default_sort else "", h)
+
+def THEAD(th):
 	return "<thead>{}</thead>".format(''.join(th))
 
 def TBODY(rows):
@@ -108,6 +120,29 @@ class ReadOnlyTaskMonitor(object):
 			}
 			*::-webkit-scrollbar-corner {
 				background-color: var(--console-bg) ;
+			}
+			th[role=columnheader]:not(.no-sort) { /*tablesort.css*/
+				cursor: pointer;
+			}
+			th[role=columnheader]:not(.no-sort):after { /*tablesort.css*/
+				content: '';
+				float: right;
+				margin-top: 7px;
+				border-width: 0 4px 4px;
+				border-style: solid;
+				border-color: #e3e3e3 transparent;
+				visibility: hidden;
+				-ms-user-select: none;
+				-webkit-user-select: none;
+				-moz-user-select: none;
+				user-select: none;
+			}
+			th[aria-sort=ascending]:not(.no-sort):after { /*tablesort.css*/
+				border-bottom: none;
+				border-width: 4px 4px 0;
+			}
+			th[aria-sort]:not(.no-sort):after { /*tablesort.css*/
+				visibility: visible;
 			}
 			h2 { padding-top:10px;}
 			table {
@@ -306,11 +341,12 @@ class ReadOnlyTaskMonitor(object):
 		if len(self.sched.jobs)==0:
 			return 'Nothing here'
 		d = []
+		table_id = 'all-jobs'
 		for i,j in enumerate(self.sched.jobs):
 			jd = j.to_dict()
 			duration = self.__duration(jd)
 			state = self.__state(jd)
-			d.append({
+			d.append(OrderedDict({
 				'Id': TD(i),
 				'Name': TD(jd['func'].replace('<', '&lt;').replace('>', '&gt;')),
 				'Schedule': TD(self.__schedule_str(jd)),
@@ -321,15 +357,17 @@ class ReadOnlyTaskMonitor(object):
 				'Time Taken': TD(duration),
 				'Next Run': TD(self.__date_fmt(jd['next_run'], "Never")),
 				'More':TD("<a href='/{}/{}'><button>show more</button><a>".format(self._endpoint, i))
-			})
+			}))
 		rows = [TR(row.values()) for row in d]
-		all_jobs_table = TABLE(thead=THEAD(d[0].keys()), tbody=TBODY(rows))
+		head = [TH(th, default_sort=(th == "Next Run") ) for th in d[0].keys()]	# apply sorting to next run
+		all_jobs_table = TABLE(thead=THEAD(head), tbody=TBODY(rows), elem_id=table_id)
 
 		auto_reload_script = '''
+		var sorter = new Tablesort(document.getElementById('{}'), {{descending: true}});
 		window.addEventListener('load', (event) => {{
 			setTimeout(()=>location.reload(), {}000)
 		}})
-		'''.format(self._homepage_refresh)
+		'''.format(table_id, self._homepage_refresh)
 		return self.__html_wrap(
 			self.STYLES,
 			H(2, "{} - Task Monitor".format(self._display_name)),
@@ -365,7 +403,7 @@ class ReadOnlyTaskMonitor(object):
 			TD( DIV( CODE(jobd['logs']['log'], css='accesslog'), css='console-div'), css="console-color"),
 			TD( DIV( CODE(jobd['logs']['err'], css='accesslog'), css='console-div'), css="console-color"),
 		])
-		logs_table = TABLE(thead=THEAD(['Logs', 'Traceback']), tbody=TBODY(logs_row), css='log_table')
+		logs_table = TABLE(thead=THEAD([TH('Logs'), TH('Traceback')]), tbody=TBODY(logs_row), css='log_table')
 		logs_div = DIV( logs_table, css="logs_div" )
 
 		container = DIV(
