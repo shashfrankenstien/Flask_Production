@@ -3,10 +3,13 @@ import time
 import threading
 import json
 from datetime import datetime as dt, timedelta
+from monthdelta import monthdelta
 from dateutil.parser import parse as date_parse
 from flask_production import TaskScheduler
 from flask_production.hols import TradingHolidays
-from flask_production.sched import LOGGER
+from flask_production.sched import LOGGER, BadScheduleError
+
+import pytest
 
 def job(x, y):
 	time.sleep(0.1)
@@ -23,9 +26,26 @@ def teardown_function(function):
 
 def test_registry():
 	s = TaskScheduler()
-	s.every("businessday").at("10:00").do(job, x="hello", y="world")
-	s.on('2019-05-16').do(job, x="hello", y="world")
-	assert len(s.jobs) == 2
+	s.every("businessday").at("10:00").do(job, x="hello", y="world") # Job
+	s.on('2019-05-16').do(job, x="hello", y="world") # OneTimeJob
+	s.every(5).at("10:00").do(job, x="hello", y="world") # RepeatJob
+	s.every('2nd').strict_date(False).at("10:00").do(job, x="hello", y="world") # MonthlyJob
+	assert len(s.jobs) == 4
+
+
+def test_badinterval():
+	s = TaskScheduler()
+	with pytest.raises(BadScheduleError):
+		s.every("potato").at("10:00").do(job, x="hello", y="world")
+	with pytest.raises(BadScheduleError):
+		s.every("2020-02-30").at("10:00").do(job, x="hello", y="world") # OneTimeJob
+	with pytest.raises(BadScheduleError):
+		s.every(0).at("10:00").do(job, x="hello", y="world") # RepeatJob
+	with pytest.raises(BadScheduleError):
+		# error because .strict_date() is not called
+		s.every("31st").at("10:00").do(job, x="hello", y="world") # MonthlyJob
+	with pytest.raises(BadScheduleError):
+		s.every("32nd").strict_date(False).at("10:00").do(job, x="hello", y="world") # MonthlyJob
 
 
 def test_regular():
@@ -64,7 +84,7 @@ def test_holidays():
 
 
 def test_onetime():
-	yesterday = (dt.now() - timedelta(days=1)).replace(hour=23, minute=59, second=0, microsecond=0)
+	yesterday = dt.now() - timedelta(days=1)
 	tomorrow = (dt.now() + timedelta(days=1)).replace(hour=23, minute=59, second=0, microsecond=0)
 	s = TaskScheduler()
 	s.on(yesterday.strftime("%Y-%m-%d")).at("23:59").do(job, x="hello", y="world")
@@ -74,6 +94,41 @@ def test_onetime():
 	assert len(s.jobs) == 2
 	s.check()
 	assert len(s.jobs) == 1
+
+
+def test_monthly():
+	def day_suffixed_str(day):
+		suffix = 'th' if 11<=day<=13 else {1:'st',2:'nd',3:'rd'}.get(day%10, 'th')
+		return str(day) + suffix
+
+	today = dt.now().replace(hour=23, minute=59, second=0, microsecond=0)
+	yesterday = (dt.now() - timedelta(days=1)).replace(hour=23, minute=59, second=0, microsecond=0)
+	s = TaskScheduler()
+
+	j = s.every(day_suffixed_str(today.day)).strict_date(True).at("23:59").do(job, x="hello", y="world")
+	assert(j.next_timestamp==dt.timestamp(today))
+
+	# yesterday's date is scheduled to next month
+	j = s.every(day_suffixed_str(yesterday.day)).strict_date(False).at("23:59").do(job, x="hello", y="world")
+	assert(j.next_timestamp==dt.timestamp(yesterday+monthdelta(1)))
+
+	# strict_date is False. So 31st will just be the last day of the month
+	j = s.every("31st").strict_date(False).at("23:59").do(job, x="hello", y="world")
+	eom = (dt.now() + monthdelta(1)).replace(day=1, hour=23, minute=59, second=0, microsecond=0) - timedelta(days=1)
+	assert(j.next_timestamp==dt.timestamp(eom))
+
+	# strict_date is True. So next schedule will be when month has 31st
+	j = s.every("31st").strict_date(True).at("23:59").do(job, x="hello", y="world")
+	day = dt.now()
+	while ((day + monthdelta(1)).replace(day=1) - timedelta(days=1)).day != 31:
+		day += monthdelta(1)
+	assert(j.next_timestamp==dt.timestamp(day.replace(day=31, hour=23, minute=59, second=0, microsecond=0)))
+
+	with pytest.raises(BadScheduleError):
+		# error because .strict_date() is not called
+		s.every("1st").at("23:59").do(job, x="hello", y="world")
+
+	assert len(s.jobs) == 4
 
 
 def test_repeat():

@@ -10,6 +10,7 @@ import inspect
 from contextlib import contextmanager
 import traceback
 import logging
+
 # default logging configuration
 # logging.captureWarnings(True)
 LOG_FORMATTER = logging.Formatter('%(message)s')
@@ -122,6 +123,10 @@ class Job(object):
 		'sunday': lambda d, hols: d.isoweekday() == 7,
 	}
 
+	@classmethod
+	def is_valid_interval(cls, interval):
+		return interval in cls.RUNABLE_DAYS
+
 	def __init__(self, every, at, func, kwargs):
 		self.interval = every
 		self.time_string = at
@@ -232,6 +237,14 @@ class Job(object):
 class OneTimeJob(Job):
 	'''type of job that runs only once'''
 
+	@classmethod
+	def is_valid_interval(cls, interval):
+		try:
+			dt.strptime(interval, "%Y-%m-%d")
+			return True
+		except:
+			return False
+
 	def schedule_next_run(self, just_ran=False):
 		H, M = self.time_string.split(':')
 		Y, m, d = self.interval.split('-')
@@ -250,14 +263,78 @@ class OneTimeJob(Job):
 class RepeatJob(Job):
 	'''type of job that runs every n seconds'''
 
+	@classmethod
+	def is_valid_interval(cls, interval):
+		return isinstance(interval, (int, float))
+
 	def schedule_next_run(self, just_ran=False):
-		if not isinstance(self.interval, (int, float)):
-			raise Exception("Illegal interval for repeating job. Expected number of seconds")
+		if not isinstance(self.interval, (int, float)) or self.interval <= 0:
+			raise BadScheduleError("Illegal interval for repeating job. Expected number of seconds")
 
 		if just_ran:
 			self.next_timestamp += self.interval
 		else:
 			self.next_timestamp = time.time() + self.interval
+
+
+class MonthlyJob(Job):
+	'''
+	type of job that can be scheduled to run once per month
+	example interval 1st, 22nd, 30th
+	limitation: we cannot intuitively handle dates >= 29 for all months
+		- ex: 29th will fail for non leap-Feb, 31st will fail for months having less than 31 days
+		- use '_strict_date' when handing dates >= 29:
+			if self._strict_date == True:
+				job is scheduled only on months which have the date (ex: 31st)
+			elif self._strict_date == False:
+				run on the last day of the month if date exceeds current month
+	'''
+
+	PATTERN = re.compile(r"^(\d{1,2})(st|nd|rd|th)$", re.IGNORECASE)
+
+	def __init__(self, every, at, func, kwargs, strict_date):
+		if not isinstance(strict_date, bool):
+			raise BadScheduleError("call to .strict_date() required for monthly schedule. ex: .every('31st').strict_date(True)..")
+		self._strict_date = strict_date
+		super().__init__(every, at, func, kwargs)
+
+	@classmethod
+	def is_valid_interval(cls, interval):
+		# example intervals - 1st, 22nd, 30th
+		match = cls.PATTERN.match(str(interval))
+		return match is not None and int(match.groups()[0]) <= 31
+
+	def __last_day_of_month(self, d):
+		return ((d + monthdelta(1)).replace(day=1) - timedelta(days=1)).day
+
+	def schedule_next_run(self, just_ran=False):
+		interval = int(self.PATTERN.match(self.interval).groups()[0])
+		H, M = self.time_string.split(':')
+		sched_day = dt.now()
+		# switch to next month if
+		# - day has already passed, or
+		# - day is today, but time has already passed
+		if interval < sched_day.day: # day already passed this month
+			sched_day += monthdelta(1) # switch to next month
+		elif interval == sched_day.day and (int(H) < sched_day.hour or (int(H) == sched_day.hour and int(M) < (sched_day.minute + 3))):
+			sched_day += monthdelta(1) # switch to next month
+
+		# handle cases where the interval day doesn't occur in all months (ex: 31st)
+		if interval > self.__last_day_of_month(sched_day):
+			if self._strict_date==False:
+				interval = self.__last_day_of_month(sched_day) # if strict is false, run on what ever is last day of the month
+			else: # strict
+				while interval > self.__last_day_of_month(sched_day): # run only on months which have the date
+					sched_day += monthdelta(1)
+
+		n = sched_day.replace(day=interval, hour=int(H), minute=int(M), second=0, microsecond=0)
+		self.next_timestamp = self.to_timestamp(n)
+
+	def __repr__(self):
+		return "{}[ strict={} ] {}. Next run = {}".format(
+			self.__class__.__name__, self._strict_date, self.func.__name__,
+			self._next_run_dt().strftime("%Y-%m-%d %H:%M:%S")
+		)
 
 
 class AsyncJobWrapper(object):
@@ -280,6 +357,10 @@ class AsyncJobWrapper(object):
 
 
 class JobExpired(Exception):
+	pass
+
+
+class BadScheduleError(Exception):
 	pass
 
 
@@ -307,13 +388,10 @@ class TaskScheduler(object):
 			fh = logging.FileHandler(self.log_filepath)
 			fh.setFormatter(LOG_FORMATTER)
 			LOGGER.addHandler(fh)
+		self._strict_monthly = None
 
 	def __current_timestring(self):
 		return dt.now().strftime("%H:%M")
-
-	def __valid_datestring(self, d):
-		date_fmt = r'^([0-9]{4})-?(1[0-2]|0[1-9])-?(3[01]|0[1-9]|[12][0-9])$'
-		return re.match(date_fmt, d) is not None
 
 	def every(self, interval):
 		'''
@@ -323,12 +401,22 @@ class TaskScheduler(object):
 		self.interval = interval
 		return self
 
+	def strict_date(self, strict):
+		'''
+		required to be called when scheduling MonthlyJob
+		- see MonthlyJob docstring
+		'''
+		if not MonthlyJob.is_valid_interval(self.interval) or not isinstance(strict, bool):
+			raise BadScheduleError(".strict_date(bool) only used for monthly schedule. ex: .every('31st').strict_date(True)..")
+		self._strict_monthly = strict
+		return self
+
 	def at(self, time_string):
 		'''
 		24 hour time string of when to run job
 		example: '15:00' for 3PM
 		'''
-		if not self.interval: self.interval = 'day'
+		if self.interval is None: self.interval = 'day'
 		self.temp_time = time_string
 		return self
 
@@ -338,15 +426,19 @@ class TaskScheduler(object):
 		run in a prallel thread if do_parallel is True
 		pass kwargs into 'func' at execution
 		'''
-		if not self.interval: raise Exception('Run .at()/.every().at() before .do()')
-		if not self.temp_time: self.temp_time = self.__current_timestring()
+		if self.interval is None: raise Exception('Run .at()/.every().at() before .do()')
+		if self.temp_time is None: self.temp_time = self.__current_timestring()
 
-		if isinstance(self.interval, (int, float)):
+		if RepeatJob.is_valid_interval(self.interval):
 			j = RepeatJob(self.interval, None, func, kwargs)
-		elif self.__valid_datestring(self.interval):
+		elif OneTimeJob.is_valid_interval(self.interval):
 			j = OneTimeJob(self.interval, self.temp_time, func, kwargs)
-		else:
+		elif MonthlyJob.is_valid_interval(self.interval):
+			j = MonthlyJob(self.interval, self.temp_time, func, kwargs, strict_date=self._strict_monthly)
+		elif Job.is_valid_interval(self.interval):
 			j = Job(self.interval, self.temp_time, func, kwargs)
+		else:
+			raise BadScheduleError("{} is not valid\n".format(self.interval))
 
 		j.init(
 			calendar=self.holidays_calendar,
@@ -357,6 +449,7 @@ class TaskScheduler(object):
 		self.jobs.append(j)
 		self.temp_time = None
 		self.interval = None
+		self._strict_monthly = None
 		return j
 
 	def check(self):
