@@ -6,7 +6,7 @@ Cherrypy prod server for Flask + parallel scheduler plugin
 ![pytest](https://github.com/shashfrankenstien/Flask_Production/workflows/pytest/badge.svg)
 
 
-## Installation
+## Installation (latest)
 
 ```sh
 pip install -U git+https://github.com/shashfrankenstien/Flask_Production.git
@@ -34,11 +34,17 @@ from flask_production import CherryFlask, TaskScheduler
 app = Flask(__name__)
 
 sched = TaskScheduler(check_interval=2)
-sched.every(60).do(foo) # Runs every minute
+# Run every minute
+sched.every(60).do(foo)
+# Runs on end of every month (with strict_date False)
+sched.every("31st").strict_date(False).at("08:00").do(foo)
+# Runs every weekday
 sched.every("weekday").at("08:00").do(lambda:bar())
+# catch() will run on job error
 example_job = sched.every("weekday").at("09:00").do(lambda:failing()).catch(lambda e: print(e))
 
-print(example_job.to_dict()) # access job information and status as dict
+# access job information and status as dict
+print(example_job.to_dict())
 print(sched.jobs[-1].to_dict()) # same job
 
 cherry = CherryFlask(app, scheduler=sched)
