@@ -312,11 +312,13 @@ class MonthlyJob(Job):
 		H, M = self.time_string.split(':')
 		sched_day = dt.now()
 		# switch to next month if
+		# - task just ran, or
 		# - day has already passed, or
 		# - day is today, but time has already passed
-		if interval < sched_day.day: # day already passed this month
-			sched_day += monthdelta(1) # switch to next month
-		elif interval == sched_day.day and (int(H) < sched_day.hour or (int(H) == sched_day.hour and (int(M) + 3 ) < sched_day.minute)): # 3 min look back on tasks
+		day_passed = interval < sched_day.day # True if day already passed this month
+		time_passed = interval == sched_day.day and (int(H) < sched_day.hour or (int(H) == sched_day.hour and (int(M) + 3 ) < sched_day.minute)) # 3 min look back on tasks
+
+		if just_ran or day_passed or time_passed:
 			sched_day += monthdelta(1) # switch to next month
 
 		# handle cases where the interval day doesn't occur in all months (ex: 31st)
