@@ -316,7 +316,7 @@ class MonthlyJob(Job):
 		# - day is today, but time has already passed
 		if interval < sched_day.day: # day already passed this month
 			sched_day += monthdelta(1) # switch to next month
-		elif interval == sched_day.day and (int(H) < sched_day.hour or (int(H) == sched_day.hour and int(M) < (sched_day.minute + 3))):
+		elif interval == sched_day.day and (int(H) < sched_day.hour or (int(H) == sched_day.hour and (int(M) + 3 ) < sched_day.minute)): # 3 min look back on tasks
 			sched_day += monthdelta(1) # switch to next month
 
 		# handle cases where the interval day doesn't occur in all months (ex: 31st)
