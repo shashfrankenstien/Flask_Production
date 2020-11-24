@@ -82,6 +82,10 @@ def test_holidays():
 	assert(s.jobs[0]._job_must_run_today(date_parse("2020-04-10"))==False) #test Custom Good Friday holiday
 	assert(s.jobs[0]._job_must_run_today(date_parse("2020-04-11"))==False) #saturday
 
+	s.every("trading-holiday").at("10:00").do(job, x="hello", y="world")
+	assert(s.jobs[1]._job_must_run_today(date_parse("2020-01-01"))==True)
+	assert(s.jobs[1]._job_must_run_today(date_parse("2020-01-02"))==False)
+
 
 def test_onetime():
 	yesterday = dt.now() - timedelta(days=1)

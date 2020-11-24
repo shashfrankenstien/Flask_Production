@@ -113,6 +113,7 @@ class Job(object):
 		'weekend': lambda d, hols : d.isoweekday() > 5,
 		'businessday': lambda d, hols : d not in hols and d.isoweekday() < 6,
 		'holiday': lambda d, hols : d in hols or d.isoweekday() > 5,
+		'trading-holiday': lambda d, hols : d in hols,
 		# days of the week
 		'monday': lambda d, hols: d.isoweekday() == 1,
 		'tuesday': lambda d, hols: d.isoweekday() == 2,
@@ -128,6 +129,10 @@ class Job(object):
 		return interval in cls.RUNABLE_DAYS
 
 	def __init__(self, every, at, func, kwargs):
+		if str(every) == 'holiday':
+			print("!!", "="*20, "!!")
+			print("'holiday' interval  is deprecated and will be removed. \r\nUse 'weekend' and 'trading-holiday' instead")
+			print("!!", "="*20, "!!")
 		self.interval = every
 		self.time_string = at
 		self.func = func
