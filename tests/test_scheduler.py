@@ -237,6 +237,44 @@ def test_print_capture():
 	s.join()
 	j0 = s.jobs[0].to_dict()
 	assert('Slow job completed' in j0['logs']['log'])
+	assert('===' in j0['logs']['log'])
+	assert('outside' not in j0['logs']['log'])
+	assert('stopping' not in j0['logs']['log'])
+	pretty_print(j0)
+	# test log file
+	assert(os.path.isfile(log_file_path)==True)
+	with open(log_file_path, 'r') as lf:
+		assert('Slow job completed' in lf.read())
+	for h in LOGGER.handlers:
+		h.close()
+		LOGGER.removeHandler(h)
+	if os.path.isfile(log_file_path): os.remove(log_file_path)
+	assert(os.path.isfile(log_file_path)==False)
+
+
+def test_silent_run():
+	def slow_job(sleep_time):
+		time.sleep(sleep_time)
+		print("Slow job completed")
+
+	sleep_time = 1
+	log_file_path = 'testlog.log'
+	s = TaskScheduler(log_filepath=log_file_path)
+	s.every(1).do(slow_job, sleep_time=sleep_time, do_parallel=True).silently()
+	s.check()
+
+	counter = 4
+	while counter>0:
+		print("outside")
+		counter -= 1
+		print('running:', s.jobs[0].is_running)
+		s.check()
+		time.sleep(0.5)
+	print("stopping")
+	s.join()
+	j0 = s.jobs[0].to_dict()
+	assert('Slow job completed' in j0['logs']['log'])
+	assert('===' not in j0['logs']['log'])      # '===' is printed only if job is not silent
 	assert('outside' not in j0['logs']['log'])
 	assert('stopping' not in j0['logs']['log'])
 	pretty_print(j0)

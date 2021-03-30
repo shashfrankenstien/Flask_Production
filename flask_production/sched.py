@@ -138,6 +138,7 @@ class Job(object):
 		self.func = func
 		self.kwargs = kwargs
 		self.is_running = False
+		self._run_silently = False
 		self._generic_err_handler = None
 		self._err_handler = None
 		self._func_src_code = inspect.getsource(self.func)
@@ -149,6 +150,10 @@ class Job(object):
 		self._run_info = _JobRunLogger()
 		self.schedule_next_run()
 		print(self)
+		return self
+
+	def silently(self):
+		self._run_silently = True
 		return self
 
 	def catch(self, err_handler):
@@ -194,10 +199,11 @@ class Job(object):
 		with self._run_info.start_capture(): # captures all writes to stdout
 			self.is_running = True
 			try:
-				print("========== Job Start [{}] =========".format(dt.now().strftime("%Y-%m-%d %H:%M:%S")))
-				print("Executing {}".format(self))
+				if not self._run_silently: # add print statements
+					print("========== Job Start [{}] =========".format(dt.now().strftime("%Y-%m-%d %H:%M:%S")))
+					print("Executing {}".format(self))
+					print("*") # job log seperator
 				start_time = time.time()
-				print("*") # job log seperator
 				return self.func(**self.kwargs)
 			except Exception:
 				err_msg = "Error in <{}>\n\n\n{}".format(self.func.__name__, traceback.format_exc())
@@ -207,11 +213,12 @@ class Job(object):
 				elif self._generic_err_handler is not None:
 					self._generic_err_handler(err_msg) # generic error callback from scheduler
 			finally:
-				print("*") # job log seperator
-				print( "Finished in {:.2f} minutes".format((time.time()-start_time)/60))
 				self.schedule_next_run(just_ran=True)
-				print(self)
-				print("========== Job End [{}] =========".format(dt.now().strftime("%Y-%m-%d %H:%M:%S")))
+				if not self._run_silently: # add print statements
+					print("*") # job log seperator
+					print( "Finished in {:.2f} minutes".format((time.time()-start_time)/60))
+					print(self)
+					print("========== Job End [{}] =========".format(dt.now().strftime("%Y-%m-%d %H:%M:%S")))
 				self.is_running = False
 
 	def _next_run_dt(self):
