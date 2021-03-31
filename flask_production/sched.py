@@ -468,7 +468,7 @@ class TaskScheduler(object):
 
 	def check(self):
 		'''check if a job is due'''
-		for j in self.jobs:
+		for j in self.jobs.copy(): # work on copy of this list - safer in case the list changes
 			try:
 				if j.is_due(): j.run()
 			except JobExpired:
