@@ -222,6 +222,7 @@ class ReadOnlyTaskMonitor(object):
 				width:100%;
 				height:100%;
 				margin-top:0px;
+				margin-bottom:0px;
 				overflow:hidden;
 			}
 			.log_table td, .log_table th {
