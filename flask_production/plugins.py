@@ -149,6 +149,7 @@ class ReadOnlyTaskMonitor(object):
 				border: 1px solid grey;
 				width:85%;
 				margin-top:20px;
+				margin-bottom:40px;
 			}
 			tr:hover { background-color: #ededed; }
 			td, th {
