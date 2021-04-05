@@ -208,10 +208,13 @@ class Job(object):
 			except Exception:
 				err_msg = "Error in <{}>\n\n\n{}".format(self.func.__name__, traceback.format_exc())
 				self._run_info.set_error()
-				if self._err_handler is not None:
-					self._err_handler(err_msg) # job specific error callback registered through .catch()
-				elif self._generic_err_handler is not None:
-					self._generic_err_handler(err_msg) # generic error callback from scheduler
+				try:
+					if self._err_handler is not None:
+						self._err_handler(err_msg) # job specific error callback registered through .catch()
+					elif self._generic_err_handler is not None:
+						self._generic_err_handler(err_msg) # generic error callback from scheduler
+				except:
+					traceback.print_exc()
 			finally:
 				self.schedule_next_run(just_ran=True)
 				if not self._run_silently: # add print statements
