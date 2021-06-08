@@ -15,10 +15,11 @@ class CherryFlask(object):
 		if not silent:
 			@app.after_request
 			def teardown(response): # pylint: disable=unused-variable
-				adr = request.environ.get('HTTP_X_REAL_IP', request.environ.get('REMOTE_ADDR'))
-				mth = request.environ.get('REQUEST_METHOD')
 				pth = request.environ.get('PATH_INFO')
-				print(f'''{adr} - [{dt.now().strftime('%m/%d/%Y %H:%M:%S')}] - "{mth} {pth}" - {response.status_code}''')
+				if "@" not in pth: # disable logging of endpoints like @taskmonitor
+					adr = request.environ.get('HTTP_X_REAL_IP', request.environ.get('REMOTE_ADDR'))
+					mth = request.environ.get('REQUEST_METHOD')
+					print(f'''{adr} - [{dt.now().strftime('%m/%d/%Y %H:%M:%S')}] - "{mth} {pth}" - {response.status_code}''')
 				return response
 
 	def run(self, host='0.0.0.0', port=8080, threads=5, debug=False):
