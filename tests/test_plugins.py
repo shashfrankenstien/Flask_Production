@@ -77,3 +77,8 @@ def test_monitor_jobpage(client):
 	assert("logs" in html_text)
 	assert("next run in" in html_text)
 
+def test_monitor_rerun_btn(client):
+	sched.every(30).do(another_task, do_parallel=True)
+	res = client.post("/{}/rerun".format(monitor._endpoint), json={'job_idx':0})
+	assert(res.status_code==200)
+	assert("success" in res.data.decode(errors='ignore').lower())

@@ -1,5 +1,7 @@
 from datetime import datetime as dt
 from collections import OrderedDict
+from flask import request
+import json
 
 def HTML(content, title):
 	return '''
@@ -183,6 +185,16 @@ class ReadOnlyTaskMonitor(object):
 				display:flex;
 				flex-direction:row;
 			}
+			.center {
+				justify-content:center;
+				align-items:center;
+			}
+			.rerun-btn {
+				cursor: pointer;
+			}
+			.rerun-btn:disabled,.rerun-btn[disabled] {
+				cursor: not-allowed;
+			}
 			.monitor {
 				width: 30vw;
 				height: 100vh;
@@ -267,6 +279,7 @@ class ReadOnlyTaskMonitor(object):
 	def create_endpoints(self):
 		self.app.add_url_rule("/{}".format(self._endpoint), view_func=self.__show_all, methods=['GET'])
 		self.app.add_url_rule("/{}/<int:n>".format(self._endpoint), view_func=self.__show_one, methods=['GET'])
+		self.app.add_url_rule("/{}/rerun".format(self._endpoint), view_func=self.__rerun_job, methods=['POST'])
 
 	def __html_wrap(self, *args):
 		return HTML(''.join(args), title="{} Task Monitor".format(self._display_name))
@@ -388,7 +401,12 @@ class ReadOnlyTaskMonitor(object):
 		jobd = self.sched.jobs[n].to_dict()
 		titleTD = lambda t: TD(t, 'title')
 		state = self.__state(jobd)
+		job_funcname = jobd['func'].replace('<', '&lt;').replace('>', '&gt;')
 
+		rerun_btn = '''<button class="rerun-btn" onclick="{}" {}>Rerun</button>'''.format(
+			'''rerun_trigger('{}', {})'''.format(job_funcname, n),
+			"disabled" if state=="RUNNING" else ""
+		)
 		rows = [
 			TR([ titleTD("Schedule"), TD(self.__schedule_str(jobd)), ]),
 			TR([ titleTD("State"), TD(state, self.__state_css(state)) ]),
@@ -396,10 +414,11 @@ class ReadOnlyTaskMonitor(object):
 			TR([ titleTD("End Time"), TD(self.__date_fmt(jobd['logs']['end'])) ]),
 			TR([ titleTD("Time Taken"), TD(self.__duration(jobd)) ]),
 			TR([ titleTD("Next Run In"), "<td id='next-run-in'>-<td>" ]),
+			TR([ TD(rerun_btn, colspan=2, attrs={'style':'text-align:center'}) ])
 		]
+
 		info_table = TABLE(tbody=TBODY(rows), css='info_table')
 		description_div = DIV( CODE(jobd['src'], css='python'), css=['console-color ', 'console-div', 'brdr'])
-		job_funcname = jobd['func'].replace('<', '&lt;').replace('>', '&gt;')
 		monitor_div = DIV(
 			H(2, job_funcname) + info_table + description_div,
 			css="monitor"
@@ -431,6 +450,24 @@ class ReadOnlyTaskMonitor(object):
 			let minutes = Math.floor(seconds / 60)
 			seconds -= minutes * 60
 			return `${{hours.pad()}}:${{minutes.pad()}}:${{Math.floor(seconds).pad()}}`
+		}}
+		function rerun_trigger(job_name, job_idx) {{
+			let input_txt = prompt("Please type in the job name to confirm rerun", "");
+			console.log(job_idx)
+			if (input_txt===job_name) {{
+				fetch('./rerun', {{method: 'POST', body: JSON.stringify({{job_idx}})}}).then(resp => {{
+					return resp.json();
+				}}).then(j=>{{
+					if (j.success)
+						window.location.reload()
+					else if (j.error)
+						throw Error(j.error)
+					else
+						throw Error("Rerun failed")
+				}}).catch(e=>alert(e))
+			}} else {{
+				alert("Rerun aborted")
+			}}
 		}}
 		window.addEventListener('load', (event) => {{
 			//scroll to bottom
@@ -468,3 +505,20 @@ class ReadOnlyTaskMonitor(object):
 			container,
 			SCRIPT(auto_reload_script)
 		)
+
+
+	def __rerun_job(self):
+		error = None
+		data = json.loads(request.data)
+		if 'job_idx' not in data or not isinstance(data['job_idx'], int):
+			error = 'Invalid input'
+		else:
+			try:
+				self.sched.rerun(data['job_idx'])
+			except Exception as e:
+				error = str(e)
+
+		if error is not None:
+			return json.dumps({'error': error})
+		else:
+			return json.dumps({'success': True})

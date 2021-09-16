@@ -57,7 +57,7 @@ def test_regular():
 
 def test_day_of_week():
 	now = dt.now()
-	today_str = now.strftime("%A").lower()
+	today_str = now.strftime("%A").lower() # day of the week
 	in2sec_str = now.strftime("%H:%M")
 	s = TaskScheduler()
 	s.every(today_str).at(in2sec_str).do(job, x="hello", y=today_str)
@@ -304,3 +304,28 @@ def test_job_docstring():
 	assert(j_w_descr.to_dict()['doc']=='job test docsting')
 	assert(j_wo_descr.to_dict()['doc']==None)
 	pretty_print(j_w_descr.to_dict())
+
+
+def test_job_rerun():
+	now = dt.now()
+	today_str = now.strftime("%A").lower() # day of the week
+	in2sec_str = now.strftime("%H:%M")
+	s = TaskScheduler()
+	s.every(today_str).at(in2sec_str).do(job, x="hello", y=today_str)
+	assert len(s.jobs) == 1
+	time.sleep(0.5)
+	s.check() # will run here, and reschedule to next week
+	run_end = s.jobs[0].to_dict()['logs']['end']
+	# test if next run greater than 6 days from now
+	test_timestamp = time.time()
+	assert s.jobs[0].next_timestamp > test_timestamp+(6*24*60*60)
+	time.sleep(1)
+
+	# rerun the job
+	prev_resched_timestamp = s.jobs[0].next_timestamp
+	s.rerun(0)
+	time.sleep(1)
+	rerun_end = s.jobs[0].to_dict()['logs']['end']
+	assert run_end != rerun_end
+	# rerun should not reschedule the job
+	assert s.jobs[0].next_timestamp == prev_resched_timestamp

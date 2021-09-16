@@ -143,10 +143,11 @@ class Job(object):
 		self._err_handler = None
 		self._func_src_code = inspect.getsource(self.func)
 
-	def init(self, calendar, generic_err_handler=None):
+	def init(self, calendar, generic_err_handler=None, startup_offset=300):
 		'''initialize extra attributes of job'''
 		self.calendar = calendar
 		self._generic_err_handler = generic_err_handler
+		self._startup_offset = startup_offset
 		self._run_info = _JobRunLogger()
 		self.schedule_next_run()
 		print(self)
@@ -171,7 +172,7 @@ class Job(object):
 		n = dt.now()
 		n = dt(n.year, n.month, n.day, int(h), int(m), 0)
 		ts = self.to_timestamp(n)
-		if self._job_must_run_today() and time.time() < ts+300 and not just_ran:
+		if self._job_must_run_today() and not just_ran and time.time() < ts+self._startup_offset:
 			self.next_timestamp = ts
 		else:
 			next_day = n + timedelta(days=1)
@@ -190,7 +191,7 @@ class Job(object):
 		'''test if job failed'''
 		return self._run_info.error != ''
 
-	def run(self):
+	def run(self, is_rerun=False):
 		'''
 		begin job run
 		redirected all print statements to _JobRunLogger
@@ -200,12 +201,16 @@ class Job(object):
 			self.is_running = True
 			try:
 				if not self._run_silently: # add print statements
-					print("========== Job Start [{}] =========".format(dt.now().strftime("%Y-%m-%d %H:%M:%S")))
+					print("========== Job {} [{}] =========".format(
+						"Rerun Start" if is_rerun else "Start",
+						dt.now().strftime("%Y-%m-%d %H:%M:%S")
+					))
 					print("Executing {}".format(self))
 					print("*") # job log seperator
 				start_time = time.time()
 				return self.func(**self.kwargs)
 			except Exception:
+				print("Job", self.func.__name__, "failed!")
 				err_msg = "Error in <{}>\n\n\n{}".format(self.func.__name__, traceback.format_exc())
 				self._run_info.set_error()
 				try:
@@ -216,12 +221,17 @@ class Job(object):
 				except:
 					traceback.print_exc()
 			finally:
-				self.schedule_next_run(just_ran=True)
+				# if the job was forced to rerun, we should not schedule the next run
+				if not is_rerun:
+					self.schedule_next_run(just_ran=True)
 				if not self._run_silently: # add print statements
 					print("*") # job log seperator
 					print( "Finished in {:.2f} minutes".format((time.time()-start_time)/60))
 					print(self)
-					print("========== Job End [{}] =========".format(dt.now().strftime("%Y-%m-%d %H:%M:%S")))
+					print("========== Job {} [{}] =========".format(
+						"Rerun End" if is_rerun else "End",
+						dt.now().strftime("%Y-%m-%d %H:%M:%S")
+					))
 				self.is_running = False
 
 	def _next_run_dt(self):
@@ -504,3 +514,12 @@ class TaskScheduler(object):
 		'''stop job started with .start() method'''
 		self._running_auto = False
 
+	def rerun(self, job_index):
+		if job_index < 0 or job_index >= len(self.jobs):
+			raise IndexError("Invalid job index")
+		j = self.jobs[job_index]
+		if j.is_running:
+			raise RuntimeError("Cannot rerun a running task")
+		if not isinstance(j, AsyncJobWrapper):
+			j = AsyncJobWrapper(j)
+		j.run(is_rerun=True)
