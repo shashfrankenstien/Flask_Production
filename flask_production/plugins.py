@@ -87,7 +87,7 @@ def CODE(s, css=[]):
 
 
 
-class ReadOnlyTaskMonitor(object):
+class TaskMonitor(object):
 
 	STYLES = '''
 		<style>
@@ -522,3 +522,11 @@ class ReadOnlyTaskMonitor(object):
 			return json.dumps({'error': error})
 		else:
 			return json.dumps({'success': True})
+
+
+class ReadOnlyTaskMonitor(TaskMonitor):
+
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		print("Deprecation Warning:")
+		print("\tReadOnlyTaskMonitor is deprecated. Use TaskMonitor instead")

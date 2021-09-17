@@ -1,13 +1,13 @@
 from flask import Flask
-from flask_production import CherryFlask, TaskScheduler
-from flask_production.plugins import ReadOnlyTaskMonitor
+from flask_production import TaskScheduler
+from flask_production.plugins import TaskMonitor
 
 import time
 import pytest
 
 app = Flask(__name__)
 sched = TaskScheduler()
-monitor = ReadOnlyTaskMonitor(app, sched=sched, display_name="Web Test")
+monitor = TaskMonitor(app, sched=sched, display_name="Web Test")
 
 toggle = False
 
