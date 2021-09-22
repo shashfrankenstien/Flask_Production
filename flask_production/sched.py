@@ -479,6 +479,10 @@ class TaskScheduler(object):
 		self._strict_monthly = None
 		return j
 
+	def do_parallel(self, func, **kwargs):
+		'''helper function to run task in a separate thread'''
+		return self.do(func, do_parallel=True, **kwargs)
+
 	def check(self):
 		'''check if a job is due'''
 		for j in self.jobs.copy(): # work on copy of this list - safer in case the list changes

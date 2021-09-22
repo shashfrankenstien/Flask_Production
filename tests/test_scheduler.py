@@ -150,8 +150,8 @@ def test_repeat_parallel():
 	d = time.time()
 	sleep_time = 1
 	s = TaskScheduler()
-	s.every(sleep_time).do(job, x="hello", y="world", do_parallel=True)
-	s.every(sleep_time).do(job, x="hello", y="world", do_parallel=True)
+	s.every(sleep_time).do(job, x="hello", y="world", do_parallel=True) # old style (pre v2.4.1)
+	s.every(sleep_time).do_parallel(job, x="hello", y="world") # new style (v2.4.1)
 	ts = s.jobs[0].next_timestamp
 	assert (abs(ts - (d+sleep_time)) < 0.1)
 	time.sleep(sleep_time+0.5)
@@ -169,7 +169,7 @@ def test_parallel_stopper():
 		print(x, y)
 
 	s = TaskScheduler(check_interval=1)
-	s.every(1).do(job, x="hello", y="world", do_parallel=True)
+	s.every(1).do_parallel(job, x="hello", y="world")
 
 	def stopp():
 		# job will start in 1 second, and finish in 3 seconds. Attempting to stop at the 2 second mark
@@ -203,9 +203,9 @@ def test_error_callback():
 		err_count += 1
 
 	s = TaskScheduler(on_job_error=err)
-	s.every(sleep_time).do(failing_job, msg='one', do_parallel=True)
+	s.every(sleep_time).do_parallel(failing_job, msg='one')
 	s.every(sleep_time).do(failing_job, msg='two')
-	s.every(sleep_time).do(failing_job, msg='three', do_parallel=True).catch(err_specific)
+	s.every(sleep_time).do_parallel(failing_job, msg='three').catch(err_specific)
 	time.sleep(sleep_time+0.5)
 	s.check()
 	time.sleep(0.5)
@@ -223,7 +223,7 @@ def test_print_capture():
 	sleep_time = 1
 	log_file_path = 'testlog.log'
 	s = TaskScheduler(log_filepath=log_file_path)
-	s.every(1).do(slow_job, sleep_time=sleep_time, do_parallel=True)
+	s.every(1).do_parallel(slow_job, sleep_time=sleep_time)
 	s.check()
 
 	counter = 4
@@ -260,7 +260,7 @@ def test_silent_run():
 	sleep_time = 1
 	log_file_path = 'testlog.log'
 	s = TaskScheduler(log_filepath=log_file_path)
-	s.every(1).do(slow_job, sleep_time=sleep_time, do_parallel=True).silently()
+	s.every(1).do_parallel(slow_job, sleep_time=sleep_time).silently()
 	s.check()
 
 	counter = 4
