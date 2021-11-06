@@ -191,6 +191,12 @@ class Job(object):
 		'''test if job failed'''
 		return self._run_info.error != ''
 
+	def func_signature(self):
+		arguments = ''
+		if self.kwargs:
+			arguments = '({})'.format(','.join(['{}={}'.format(k,v) for k,v in self.kwargs.items()]))
+		return '{}{}'.format(self.func.__name__, arguments)
+
 	def run(self, is_rerun=False):
 		'''
 		begin job run
@@ -210,8 +216,8 @@ class Job(object):
 				start_time = time.time()
 				return self.func(**self.kwargs)
 			except Exception:
-				print("Job", self.func.__name__, "failed!")
-				err_msg = "Error in <{}>\n\n\n{}".format(self.func.__name__, traceback.format_exc())
+				print("Job", self.func_signature(), "failed!")
+				err_msg = "Error in {}\n\n\n{}".format(self.func_signature(), traceback.format_exc())
 				self._run_info.set_error()
 				try:
 					if self._err_handler is not None:
@@ -254,7 +260,7 @@ class Job(object):
 	def __repr__(self):
 		d = self._next_run_dt()
 		return "{} {}. Next run = {}".format(
-			self.__class__.__name__, self.func.__name__,
+			self.__class__.__name__, self.func_signature(),
 			d.strftime("%Y-%m-%d %H:%M:%S") if isinstance(d, dt) else 'Never'
 		)
 

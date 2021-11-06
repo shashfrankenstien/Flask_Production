@@ -367,7 +367,7 @@ class TaskMonitor(object):
 			next_dt = jd['next_run']
 			d.append(OrderedDict({
 				'Id': TD(i),
-				'Name': TD(jd['func'].replace('<', '&lt;').replace('>', '&gt;')),
+				'Name': TD(jd['func'].replace('<', '&lt;').replace('>', '&gt;'), attrs={'title':j.func_signature()}),
 				'Schedule': TD(self.__schedule_str(jd)),
 				'Description': self.__descrTD(jd['doc']),
 				'State': TD(state, css=self.__state_css(state)),
