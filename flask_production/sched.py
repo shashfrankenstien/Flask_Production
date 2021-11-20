@@ -192,9 +192,10 @@ class Job(object):
 		return self._run_info.error != ''
 
 	def func_signature(self):
+		trim10 = lambda s: str(s)[:10] + ".." if len(str(s))>10 else str(s)
 		arguments = ''
 		if self.kwargs:
-			arguments = '({})'.format(','.join(['{}={}'.format(k,v) for k,v in self.kwargs.items()]))
+			arguments = '({})'.format(','.join(['{}={}'.format(k, trim10(v)) for k,v in self.kwargs.items()]))
 		return '{}{}'.format(self.func.__name__, arguments)
 
 	def run(self, is_rerun=False):

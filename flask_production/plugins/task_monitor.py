@@ -31,8 +31,9 @@ def HTML(content, title):
 		</body>
 	</html>'''.format(title, str(content))
 
-def H(index, content):
-	return "<h{i}>{c}</h{i}>".format(c=content, i=index)
+def H(index, content, attrs={}):
+	attrs = ' '.join(["{}='{}'".format(k,v) for k,v in attrs.items()])
+	return "<h{i} {a}>{c}</h{i}>".format(c=content, i=index, a=attrs)
 
 def SPAN(content):
 	return "<span>{c}</span>".format(c=content)
@@ -419,8 +420,9 @@ class TaskMonitor(object):
 
 		info_table = TABLE(tbody=TBODY(rows), css='info_table')
 		description_div = DIV( CODE(jobd['src'], css='python'), css=['console-color ', 'console-div', 'brdr'])
+		title = H(2, job_funcname, attrs={'title': self.sched.jobs[n].func_signature()})
 		monitor_div = DIV(
-			H(2, job_funcname) + info_table + description_div,
+			title + info_table + description_div,
 			css="monitor"
 		)
 
