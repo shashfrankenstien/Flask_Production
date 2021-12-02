@@ -17,6 +17,8 @@ LOG_FORMATTER = logging.Formatter('%(message)s')
 LOGGER_NAME = 'flask_production'
 LOGGER = logging.getLogger(LOGGER_NAME)
 LOGGER.setLevel(logging.INFO)
+# stop propagting to root logger
+LOGGER.propagate = False
 
 
 from ._capture import print_capture
@@ -128,11 +130,12 @@ class Job(object):
 	def is_valid_interval(cls, interval):
 		return interval in cls.RUNABLE_DAYS
 
-	def __init__(self, every, at, func, kwargs):
+	def __init__(self, jobid, every, at, func, kwargs):
 		if str(every) == 'holiday':
 			print("!!", "="*20, "!!")
 			print("'holiday' interval  is deprecated and will be removed. \r\nUse 'weekend' and 'trading-holiday' instead")
 			print("!!", "="*20, "!!")
+		self.jobid = jobid
 		self.interval = every
 		self.time_string = at
 		self.func = func
@@ -192,10 +195,18 @@ class Job(object):
 		return self._run_info.error != ''
 
 	def func_signature(self):
-		trim10 = lambda s: str(s)[:10] + ".." if len(str(s))>10 else str(s)
+		def readable_trim(s):
+			if isinstance(s, list):
+				return "[..]"
+			elif isinstance(s, set):
+				return "(..)"
+			elif isinstance(s, list):
+				return "{..}"
+			else:
+				return str(s)[:6] + ".." if len(str(s))>6 else str(s)
 		arguments = ''
 		if self.kwargs:
-			arguments = '({})'.format(','.join(['{}={}'.format(k, trim10(v)) for k,v in self.kwargs.items()]))
+			arguments = '({})'.format(','.join(['{}={}'.format(k, readable_trim(v)) for k,v in self.kwargs.items()]))
 		return '{}{}'.format(self.func.__name__, arguments)
 
 	def run(self, is_rerun=False):
@@ -208,7 +219,8 @@ class Job(object):
 			self.is_running = True
 			try:
 				if not self._run_silently: # add print statements
-					print("========== Job {} [{}] =========".format(
+					print("========== [{:03}] - Job {} [{}] =========".format(
+						self.jobid,
 						"Rerun Start" if is_rerun else "Start",
 						dt.now().strftime("%Y-%m-%d %H:%M:%S")
 					))
@@ -235,7 +247,8 @@ class Job(object):
 					print("*") # job log seperator
 					print( "Finished in {:.2f} minutes".format((time.time()-start_time)/60))
 					print(self)
-					print("========== Job {} [{}] =========".format(
+					print("========== [{:03}] - Job {} [{}] =========".format(
+						self.jobid,
 						"Rerun End" if is_rerun else "End",
 						dt.now().strftime("%Y-%m-%d %H:%M:%S")
 					))
@@ -247,6 +260,7 @@ class Job(object):
 	def to_dict(self):
 		'''property to access job info dict'''
 		return dict(
+			jobid=self.jobid,
 			func=self.func.__name__,
 			src=self._func_src_code,
 			doc=self.func.__doc__,
@@ -260,9 +274,11 @@ class Job(object):
 
 	def __repr__(self):
 		d = self._next_run_dt()
-		return "{} {}. Next run = {}".format(
-			self.__class__.__name__, self.func_signature(),
-			d.strftime("%Y-%m-%d %H:%M:%S") if isinstance(d, dt) else 'Never'
+		return "{:10} [{:03}] | Next run = {} | {}".format(
+			self.__class__.__name__,
+			self.jobid,
+			d.strftime("%Y-%m-%d %H:%M:%S") if isinstance(d, dt) else 'Never',
+			self.func_signature()
 		)
 
 
@@ -324,11 +340,11 @@ class MonthlyJob(Job):
 
 	PATTERN = re.compile(r"^(\d{1,2})(st|nd|rd|th)$", re.IGNORECASE)
 
-	def __init__(self, every, at, func, kwargs, strict_date):
+	def __init__(self, jobid, every, at, func, kwargs, strict_date):
 		if not isinstance(strict_date, bool):
 			raise BadScheduleError("call to .strict_date() required for monthly schedule. ex: .every('31st').strict_date(True)..")
 		self._strict_date = strict_date
-		super().__init__(every, at, func, kwargs)
+		super().__init__(jobid, every, at, func, kwargs)
 
 	@classmethod
 	def is_valid_interval(cls, interval):
@@ -365,10 +381,10 @@ class MonthlyJob(Job):
 		self.next_timestamp = self.to_timestamp(n)
 
 	def __repr__(self):
-		return "{}[ strict={} ] {}. Next run = {}".format(
-			self.__class__.__name__, self._strict_date, self.func.__name__,
-			self._next_run_dt().strftime("%Y-%m-%d %H:%M:%S")
-		)
+		r = super().__repr__()
+		if self._strict_date:
+			r = r.replace(self.__class__.__name__, self.__class__.__name__+"[strict]")
+		return r
 
 
 class AsyncJobWrapper(object):
@@ -463,14 +479,15 @@ class TaskScheduler(object):
 		if self.interval is None: raise Exception('Run .at()/.every().at() before .do()')
 		if self.temp_time is None: self.temp_time = self.__current_timestring()
 
+		new_jobid = len(self.jobs)
 		if RepeatJob.is_valid_interval(self.interval):
-			j = RepeatJob(self.interval, None, func, kwargs)
+			j = RepeatJob(new_jobid, self.interval, None, func, kwargs)
 		elif OneTimeJob.is_valid_interval(self.interval):
-			j = OneTimeJob(self.interval, self.temp_time, func, kwargs)
+			j = OneTimeJob(new_jobid, self.interval, self.temp_time, func, kwargs)
 		elif MonthlyJob.is_valid_interval(self.interval):
-			j = MonthlyJob(self.interval, self.temp_time, func, kwargs, strict_date=self._strict_monthly)
+			j = MonthlyJob(new_jobid, self.interval, self.temp_time, func, kwargs, strict_date=self._strict_monthly)
 		elif Job.is_valid_interval(self.interval):
-			j = Job(self.interval, self.temp_time, func, kwargs)
+			j = Job(new_jobid, self.interval, self.temp_time, func, kwargs)
 		else:
 			raise BadScheduleError("{} is not valid\n".format(self.interval))
 
