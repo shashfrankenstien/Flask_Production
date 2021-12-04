@@ -146,7 +146,7 @@ class Job(object):
 		self._err_handler = None
 		self._func_src_code = inspect.getsource(self.func)
 
-	def init(self, calendar, generic_err_handler=None, startup_offset=300):
+	def init(self, calendar, generic_err_handler=None, startup_offset=180):
 		'''initialize extra attributes of job'''
 		self.calendar = calendar
 		self._generic_err_handler = generic_err_handler
@@ -262,6 +262,7 @@ class Job(object):
 		return dict(
 			jobid=self.jobid,
 			func=self.func.__name__,
+			signature=self.func_signature(),
 			src=self._func_src_code,
 			doc=self.func.__doc__,
 			type=self.__class__.__name__,
@@ -542,12 +543,18 @@ class TaskScheduler(object):
 		'''stop job started with .start() method'''
 		self._running_auto = False
 
-	def rerun(self, job_index):
-		if job_index < 0 or job_index >= len(self.jobs):
-			raise IndexError("Invalid job index")
-		j = self.jobs[job_index]
-		if j.is_running:
+	def get_job_by_id(self, jobid):
+		for j in self.jobs:
+			if j.jobid==jobid:
+				return j
+		return None
+
+	def rerun(self, jobid):
+		selected_job = self.get_job_by_id(jobid)
+		if selected_job is None:
+			raise IndexError("Invalid job id")
+		if selected_job.is_running:
 			raise RuntimeError("Cannot rerun a running task")
-		if not isinstance(j, AsyncJobWrapper):
-			j = AsyncJobWrapper(j)
-		j.run(is_rerun=True)
+		if not isinstance(selected_job, AsyncJobWrapper):
+			selected_job = AsyncJobWrapper(selected_job)
+		selected_job.run(is_rerun=True)

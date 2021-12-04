@@ -3,11 +3,14 @@ from flask_production import TaskScheduler
 from flask_production.plugins import TaskMonitor
 
 import time
+import json
 import pytest
+
+MONITOR_NAME = "Web Test"
 
 app = Flask(__name__)
 sched = TaskScheduler()
-monitor = TaskMonitor(app, sched=sched, display_name="Web Test")
+monitor = TaskMonitor(app, sched=sched, display_name=MONITOR_NAME)
 
 toggle = False
 
@@ -73,12 +76,41 @@ def test_monitor_jobpage(client):
 	html_text = jobpage.data.decode(errors='ignore').lower()
 	assert("another_task" in html_text)
 	assert("lambda" not in html_text)
-
 	assert("logs" in html_text)
 	assert("next run in" in html_text)
 
+
 def test_monitor_rerun_btn(client):
 	sched.every(30).do(another_task, do_parallel=True)
-	res = client.post("/{}/rerun".format(monitor._endpoint), json={'job_idx':0})
+	res = client.post("/{}/rerun".format(monitor._endpoint), json={'jobid':0})
 	assert(res.status_code==200)
 	assert("success" in res.data.decode(errors='ignore').lower())
+
+
+def test_monitor_all_json(client):
+	sched.every("day").at("8:00").do(another_task)
+	sched.every(30).do(another_task, do_parallel=True)
+	sched.every(30).do(lambda: wash_car(), do_parallel=True)
+
+	resp = client.get("/{}/all".format(monitor._endpoint), content_type='application/json')
+	respdict = json.loads(resp.data.decode('utf8'))
+	assert('success' in respdict)
+	assert(isinstance(respdict['success'], list))
+	assert(isinstance(respdict['success'][0], dict))
+	assert(isinstance(respdict['success'][0]['logs'], dict))
+
+
+def test_monitor_summary(client):
+	sched.every(30).do(lambda: wash_car(), do_parallel=True)
+
+	all_resp = client.get("/{}/all".format(monitor._endpoint), content_type='application/json')
+	all_respdict = json.loads(all_resp.data.decode('utf8'))
+
+	resp = client.get("/{}/summary".format(monitor._endpoint), content_type='application/json')
+	respdict = json.loads(resp.data.decode('utf8'))
+	assert('success' in respdict)
+	assert(respdict['success']['name']==MONITOR_NAME)
+	assert(respdict['success']['summary']['count']==len(respdict['success']['details']))
+	assert(respdict['success']['summary']['errors']==0)
+
+	assert(len(all_respdict['success'])==len(respdict['success']['details']))

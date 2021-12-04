@@ -275,10 +275,9 @@ class TaskMonitor(object):
 		self._display_name = display_name or self.app.name
 		self._homepage_refresh = homepage_refresh
 		self._taskpage_refresh = taskpage_refresh
-		self.create_endpoints()
-
-	def create_endpoints(self):
 		self.app.add_url_rule("/{}".format(self._endpoint), view_func=self.__show_all, methods=['GET'])
+		self.app.add_url_rule("/{}/all".format(self._endpoint), view_func=self.__get_all_json, methods=['GET'])
+		self.app.add_url_rule("/{}/summary".format(self._endpoint), view_func=self.__get_summary_json, methods=['GET'])
 		self.app.add_url_rule("/{}/<int:n>".format(self._endpoint), view_func=self.__show_one, methods=['GET'])
 		self.app.add_url_rule("/{}/rerun".format(self._endpoint), view_func=self.__rerun_job, methods=['POST'])
 
@@ -354,12 +353,38 @@ class TaskMonitor(object):
 						return j['src'][:idx].count("\n")
 		return -1
 
+	def __get_all_json(self):
+		if len(self.sched.jobs)==0:
+			return json.dumps({'error':'Nothing here'})
+		else:
+			return json.dumps({'success': [j.to_dict() for j in self.sched.jobs]}, default=str)
+
+	def __get_summary_json(self):
+		if len(self.sched.jobs)==0:
+			return json.dumps({'error':'Nothing here'})
+		else:
+			details = []
+			summary = {'count': 0, 'errors': 0}
+			for j in self.sched.jobs:
+				jd = j.to_dict()
+				state = self.__state(jd)
+				summary['count'] += 1
+				if state == "ERROR":
+					summary['errors'] += 1
+				details.append({
+					'id': jd['jobid'],
+					'state': state,
+					'signature': jd['signature']
+				})
+			out = {'name': self._display_name, 'summary': summary, 'details': details}
+			return json.dumps({'success': out}, default=str)
+
 	def __show_all(self):
 		if len(self.sched.jobs)==0:
 			return 'Nothing here'
 		d = []
 		table_id = 'all-jobs'
-		for i,j in enumerate(self.sched.jobs):
+		for j in self.sched.jobs:
 			jd = j.to_dict()
 			duration = self.__duration(jd)
 			state = self.__state(jd)
@@ -367,7 +392,7 @@ class TaskMonitor(object):
 			end_dt = jd['logs']['end']
 			next_dt = jd['next_run']
 			d.append(OrderedDict({
-				'Id': TD(i),
+				'Id': TD(jd['jobid']),
 				'Name': TD(jd['func'].replace('<', '&lt;').replace('>', '&gt;'), attrs={'title':j.func_signature()}),
 				'Schedule': TD(self.__schedule_str(jd)),
 				'Description': self.__descrTD(jd['doc']),
@@ -376,7 +401,7 @@ class TaskMonitor(object):
 				'End': TD(self.__date_fmt(end_dt), attrs=self.__date_sort_attr(end_dt)),
 				'Time Taken': TD(duration),
 				'Next Run': TD(self.__date_fmt(next_dt, "Never"), attrs=self.__date_sort_attr(next_dt)),
-				'More':TD("<a href='/{}/{}'><button>show more</button><a>".format(self._endpoint, i))
+				'More':TD("<a href='/{}/{}'><button>show more</button><a>".format(self._endpoint, jd['jobid']))
 			}))
 		rows = [TR(row.values()) for row in d]
 		head = [TH(th, default_sort=(th=="Next Run") ) for th in d[0].keys()]	# apply sorting to 'next run'
@@ -397,9 +422,10 @@ class TaskMonitor(object):
 		)
 
 	def __show_one(self, n):
-		if n>=len(self.sched.jobs):
-			return 'Nothing here'
-		jobd = self.sched.jobs[n].to_dict()
+		j = self.sched.get_job_by_id(n)
+		if j is None:
+			return 'Not found'
+		jobd = j.to_dict()
 		titleTD = lambda t: TD(t, 'title')
 		state = self.__state(jobd)
 		job_funcname = jobd['func'].replace('<', '&lt;').replace('>', '&gt;')
@@ -453,11 +479,11 @@ class TaskMonitor(object):
 			seconds -= minutes * 60
 			return `${{hours.pad()}}:${{minutes.pad()}}:${{Math.floor(seconds).pad()}}`
 		}}
-		function rerun_trigger(job_name, job_idx) {{
+		function rerun_trigger(job_name, jobid) {{
 			let input_txt = prompt("Please type in the job name to confirm rerun", "");
-			console.log(job_idx)
+			console.log(jobid)
 			if (input_txt===job_name) {{
-				fetch('./rerun', {{method: 'POST', body: JSON.stringify({{job_idx}})}}).then(resp => {{
+				fetch('./rerun', {{method: 'POST', body: JSON.stringify({{jobid}})}}).then(resp => {{
 					return resp.json();
 				}}).then(j=>{{
 					if (j.success)
@@ -512,11 +538,11 @@ class TaskMonitor(object):
 	def __rerun_job(self):
 		error = None
 		data = json.loads(request.data)
-		if 'job_idx' not in data or not isinstance(data['job_idx'], int):
+		if 'jobid' not in data or not isinstance(data['jobid'], int):
 			error = 'Invalid input'
 		else:
 			try:
-				self.sched.rerun(data['job_idx'])
+				self.sched.rerun(data['jobid'])
 			except Exception as e:
 				error = str(e)
 
