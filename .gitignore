@@ -1,5 +1,7 @@
 *.pyc
 __pycache__
 *.pytest_cache
+*.log
 
 func_test.py
+consolidate.py

@@ -89,10 +89,8 @@ def test_monitor_rerun_btn(client):
 
 def test_monitor_all_json(client):
 	sched.every("day").at("8:00").do(another_task)
-	sched.every(30).do(another_task, do_parallel=True)
-	sched.every(30).do(lambda: wash_car(), do_parallel=True)
 
-	resp = client.get("/{}/all".format(monitor._endpoint), content_type='application/json')
+	resp = client.get("/{}/json/all".format(monitor._endpoint), content_type='application/json')
 	respdict = json.loads(resp.data.decode('utf8'))
 	assert('success' in respdict)
 	assert(isinstance(respdict['success'], list))
@@ -100,13 +98,23 @@ def test_monitor_all_json(client):
 	assert(isinstance(respdict['success'][0]['logs'], dict))
 
 
-def test_monitor_summary(client):
-	sched.every(30).do(lambda: wash_car(), do_parallel=True)
+def test_monitor_one_json(client):
+	sched.every("day").at("8:00").do(another_task)
 
-	all_resp = client.get("/{}/all".format(monitor._endpoint), content_type='application/json')
+	resp = client.get("/{}/json/0".format(monitor._endpoint), content_type='application/json')
+	respdict = json.loads(resp.data.decode('utf8'))
+	assert('success' in respdict)
+	assert(isinstance(respdict['success'], dict))
+	assert(respdict['success']['jobid']==0)
+
+
+def test_monitor_summary(client):
+	sched.every("day").at("8:00").do(another_task)
+
+	all_resp = client.get("/{}/json/all".format(monitor._endpoint), content_type='application/json')
 	all_respdict = json.loads(all_resp.data.decode('utf8'))
 
-	resp = client.get("/{}/summary".format(monitor._endpoint), content_type='application/json')
+	resp = client.get("/{}/json/summary".format(monitor._endpoint), content_type='application/json')
 	respdict = json.loads(resp.data.decode('utf8'))
 	assert('success' in respdict)
 	assert(respdict['success']['name']==MONITOR_NAME)

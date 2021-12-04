@@ -3,89 +3,7 @@ from collections import OrderedDict
 from flask import request
 import json
 
-def HTML(content, title):
-	return '''
-	<!DOCTYPE html>
-	<html lang="en">
-		<head>
-			<meta charset="UTF-8">
-			<meta name="viewport" content="width=device-width, initial-scale=1.0">
-			<script src="https://cdnjs.cloudflare.com/ajax/libs/tablesort/5.2.1/tablesort.min.js"
-				integrity="sha512-F/gIMdDfda6OD2rnzt/Iyp2V9JLHlFQ+EUyixDg9+rkwjqgW1snpkpx7FD5FV1+gG2fmFj7I3r6ReQDUidHelA=="
-				crossorigin="anonymous"></script>
-			<script src="https://cdnjs.cloudflare.com/ajax/libs/tablesort/5.2.1/sorts/tablesort.number.min.js"
-				integrity="sha512-dRD755QRxlybm0h3LXXIGrFcjNakuxW3reZqnPtUkMv6YsSWoJf+slPjY5v4lZvx2ss+wBZQFegepmA7a2W9eA=="
-				crossorigin="anonymous"></script>
-			<link rel="stylesheet"
-				href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/monokai-sublime.min.css">
-			<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js"></script>
-			<script src="https://cdn.jsdelivr.net/gh/TRSasasusu/highlightjs-highlight-lines.js@1.1.6/highlightjs-highlight-lines.min.js"></script>
-			<script>
-				hljs.configure({{languages: ['python', 'accesslog']}});
-				hljs.initHighlightingOnLoad();
-			</script>
-			<title>{}</title>
-		</head>
-		<body>
-			{}
-		</body>
-	</html>'''.format(title, str(content))
-
-def H(index, content, attrs={}):
-	attrs = ' '.join(["{}='{}'".format(k,v) for k,v in attrs.items()])
-	return "<h{i} {a}>{c}</h{i}>".format(c=content, i=index, a=attrs)
-
-def SPAN(content):
-	return "<span>{c}</span>".format(c=content)
-
-def DIV(content, css=[]):
-	if not isinstance(css, (list,set,tuple)):
-		css = [css]
-	if css:
-		return "<div class='{}'>{}</div>".format(' '.join(css), content)
-	else:
-		return "<div>{}</div>".format(content)
-
-def TABLE(thead='', tbody='', css=[], elem_id=''):
-	if not isinstance(css, (list,set,tuple)):
-		css = [css]
-	if css:
-		return "<table class='{}' id='{}'>{}{}</table>".format(' '.join(css), elem_id, thead, tbody)
-	else:
-		return "<table id='{}'>{}{}</table>".format(elem_id, thead, tbody)
-
-def TH(h, default_sort=False):
-	return "<th {}>{}</th>".format("data-sort-default" if default_sort else "", h)
-
-def THEAD(th):
-	return "<thead>{}</thead>".format(''.join(th))
-
-def TBODY(rows):
-	return "<tbody>{}</tbody>".format(''.join(rows))
-
-def TD(content, css=[], colspan=1, rowspan=1, attrs={}):
-	if not isinstance(css, (list,set,tuple)):
-		css = [css]
-	attrs = ' '.join(["{}='{}'".format(k,v) for k,v in attrs.items()])
-	return "<td class='{}' colspan={} rowspan={} {}>{}</td>".format(
-		' '.join(css),
-		colspan,
-		rowspan,
-		attrs,
-		content if content is not None else "-"
-	)
-
-def TR(row):
-	return "<tr>{}</tr>".format(''.join(row))
-
-def SCRIPT(s):
-	return "<script>{}</script>".format(s)
-
-def CODE(s, css=[]):
-	if not isinstance(css, (list,set,tuple)):
-		css = [css]
-	return "<pre><code class='{}'>{}</code></pre>".format(' '.join(css), s)
-
+from .html_templates import * # pylint: disable=unused-wildcard-import
 
 
 class TaskMonitor(object):
@@ -276,10 +194,11 @@ class TaskMonitor(object):
 		self._homepage_refresh = homepage_refresh
 		self._taskpage_refresh = taskpage_refresh
 		self.app.add_url_rule("/{}".format(self._endpoint), view_func=self.__show_all, methods=['GET'])
-		self.app.add_url_rule("/{}/all".format(self._endpoint), view_func=self.__get_all_json, methods=['GET'])
-		self.app.add_url_rule("/{}/summary".format(self._endpoint), view_func=self.__get_summary_json, methods=['GET'])
 		self.app.add_url_rule("/{}/<int:n>".format(self._endpoint), view_func=self.__show_one, methods=['GET'])
 		self.app.add_url_rule("/{}/rerun".format(self._endpoint), view_func=self.__rerun_job, methods=['POST'])
+		self.app.add_url_rule("/{}/json/all".format(self._endpoint), view_func=self.__get_all_json, methods=['GET'])
+		self.app.add_url_rule("/{}/json/summary".format(self._endpoint), view_func=self.__get_summary_json, methods=['GET'])
+		self.app.add_url_rule("/{}/json/<int:n>".format(self._endpoint), view_func=self.__get_one_json, methods=['GET'])
 
 	def __html_wrap(self, *args):
 		return HTML(''.join(args), title="{} Task Monitor".format(self._display_name))
@@ -379,6 +298,12 @@ class TaskMonitor(object):
 			out = {'name': self._display_name, 'summary': summary, 'details': details}
 			return json.dumps({'success': out}, default=str)
 
+	def __get_one_json(self, n):
+		j = self.sched.get_job_by_id(n)
+		if j is None:
+			return json.dumps({'error':'Invalid job id'})
+		return json.dumps({'success': j.to_dict()}, default=str)
+
 	def __show_all(self):
 		if len(self.sched.jobs)==0:
 			return 'Nothing here'
@@ -406,17 +331,27 @@ class TaskMonitor(object):
 		rows = [TR(row.values()) for row in d]
 		head = [TH(th, default_sort=(th=="Next Run") ) for th in d[0].keys()]	# apply sorting to 'next run'
 		all_jobs_table = TABLE(thead=THEAD(head), tbody=TBODY(rows), elem_id=table_id)
+		rerun_txt = SMALL(f"Auto-refresh in {SPAN(self._homepage_refresh, attrs={'id': 'refresh-msg'})} seconds")
 
 		auto_reload_script = '''
 		new Tablesort(document.getElementById('{}'));
+		let COUNT_DOWN = {}
 		window.addEventListener('load', (event) => {{
-			setTimeout(()=>location.reload(), {}000)
+			setInterval(()=>{{
+				if (COUNT_DOWN > 0) {{
+					COUNT_DOWN --
+					document.getElementById('refresh-msg').innerText = COUNT_DOWN
+				}} else {{
+					location.reload()
+				}}
+			}}, 1000)
 		}})
 		'''.format(table_id, self._homepage_refresh)
 		return self.__html_wrap(
 			self.STYLES,
 			H(2, "{} - Task Monitor".format(self._display_name)),
 			SPAN("Running since {}".format(self._init_dt)),
+			rerun_txt,
 			all_jobs_table,
 			SCRIPT(auto_reload_script)
 		)
