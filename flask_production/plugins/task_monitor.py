@@ -63,18 +63,18 @@ class TaskMonitor(object):
 			th[aria-sort]:not(.no-sort):after { /*tablesort.css*/
 				visibility: visible;
 			}
-			h2 { padding-top:10px;}
+			small, h2 { padding-top:10px;}
 			table {
 				border-spacing: 5px;
 				border-collapse: collapse;
-				border: 1px solid grey;
+				border: 1px solid #c2c2c2;
 				width:85%;
 				margin-top:20px;
 				margin-bottom:40px;
 			}
 			tr:hover { background-color: #ededed; }
 			td, th {
-				border: 1px solid grey;
+				border: 1px solid #d1d1d1;
 				padding: 5px;
 			}
 			th {

@@ -52,7 +52,7 @@ class MonitorConsolidator:
 		app,
 		scan_host='127.0.0.1',
 		known_ports=[],
-		page_refresh=15):
+		page_refresh=30):
 
 		self.app = app
 		self.machine = socket.gethostname()
@@ -129,7 +129,7 @@ class MonitorConsolidator:
 				}}
 			}}, 1000)
 		}})
-		'''.format(page_refresh=15))
+		'''.format(page_refresh=self.page_refresh))
 		return HTML(''.join([
 			self.STYLES,
 			header,
