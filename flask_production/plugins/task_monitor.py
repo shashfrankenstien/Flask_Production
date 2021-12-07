@@ -361,7 +361,7 @@ class TaskMonitor(object):
 		if j is None:
 			return 'Not found'
 		jobd = j.to_dict()
-		titleTD = lambda t: TD(t, 'title')
+		titleTD = lambda t: TD(t, css='title')
 		state = self.__state(jobd)
 		job_funcname = jobd['func'].replace('<', '&lt;').replace('>', '&gt;')
 
@@ -371,7 +371,7 @@ class TaskMonitor(object):
 		)
 		rows = [
 			TR([ titleTD("Schedule"), TD(self.__schedule_str(jobd)), ]),
-			TR([ titleTD("State"), TD(state, self.__state_css(state)) ]),
+			TR([ titleTD("State"), TD(state, css=self.__state_css(state)) ]),
 			TR([ titleTD("Start Time"), TD(self.__date_fmt(jobd['logs']['start'])) ]),
 			TR([ titleTD("End Time"), TD(self.__date_fmt(jobd['logs']['end'])) ]),
 			TR([ titleTD("Time Taken"), TD(self.__duration(jobd)) ]),
