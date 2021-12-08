@@ -50,12 +50,15 @@ class LocalMonitors:
 	def __init__(self,
 		app,
 		ports=[],
-		page_refresh=30):
+		page_refresh=30,
+		taskmonitor_endpoint="/@taskmonitor"):
 
 		self.app = app
 		self.machine = socket.gethostname()
+		self.local_ip = socket.gethostbyname(self.machine)
 		self.ports = set(ports)
 		self.page_refresh = page_refresh
+		self.taskmonitor_endpoint = taskmonitor_endpoint
 		self.app.add_url_rule("/", view_func=self._render_monitors, methods=['GET'])
 
 
@@ -70,7 +73,7 @@ class LocalMonitors:
 
 	def _get_taskmonitor(self, port, timeout=5):
 		try:
-			monitor_url = f"http://127.0.0.1:{port}/@taskmonitor"
+			monitor_url = f"http://{self.local_ip}:{port}/@{self.taskmonitor_endpoint}"
 			res = requests.get(f"{monitor_url}/json/summary", timeout=timeout).json()
 			# print(json.dumps(res, indent=4))
 			res['port'] = port
