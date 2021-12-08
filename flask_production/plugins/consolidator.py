@@ -63,10 +63,10 @@ class LocalMonitors:
 	def scan(self, min_port=1000, max_port=10000, timeout=5):
 		for conn in psutil.net_connections():
 			if conn.status == "LISTEN" and conn.laddr.port >= min_port and conn.laddr.port <= max_port:
-				print('>> scanning', conn.laddr.port)
 				m = self._get_taskmonitor(conn.laddr.port, timeout=timeout)
 				if m is not None:
 					self.ports.add(conn.laddr.port)
+				print('>> scanned', conn.laddr.port, "- found" if m is not None else "")
 
 
 	def _get_taskmonitor(self, port, timeout=5):
