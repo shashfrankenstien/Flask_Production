@@ -4,10 +4,8 @@ import json
 
 from .html_templates import * # pylint: disable=unused-wildcard-import
 
-EXCLUDE_PORTS = [22]
 
-
-class MonitorConsolidator:
+class TaskMonitorMonitor:
 	'''Automatically scan ports and consolidate many TaskMonitors'''
 
 	STYLES = '''
@@ -50,44 +48,32 @@ class MonitorConsolidator:
 
 	def __init__(self,
 		app,
-		scan_host='127.0.0.1',
-		known_ports=[],
+		scan_addrs,
 		page_refresh=30):
 
 		self.app = app
 		self.machine = socket.gethostname()
-		self.scan_host = scan_host
-		self.known_ports = known_ports
+		self.scan_addrs = scan_addrs
 		self.page_refresh = page_refresh
 		self.app.add_url_rule("/", view_func=self._render_monitors, methods=['GET'])
 
 
-	def _check_taskmonitor(self, port):
-		sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		result = sock.connect_ex((self.scan_host, port))
-		if result == 0:
-			print ("Port is open -",port)
-			try:
-				monitor_url = f"http://{self.scan_host}:{port}/@taskmonitor"
-				res = requests.get(f"{monitor_url}/json/summary").json()
-				# print(json.dumps(res, indent=4))
-				res['port'] = port
-				res['url'] = monitor_url
-				return res
-			except Exception as e:
-				print(e)
-		sock.close()
+	def _get_taskmonitor(self, addr):
+		try:
+			host, port = addr
+			monitor_url = f"http://{host}:{port}/@taskmonitor"
+			res = requests.get(f"{monitor_url}/json/summary").json()
+			# print(json.dumps(res, indent=4))
+			res['port'] = port
+			res['url'] = monitor_url
+			return res
+		except Exception as e:
+			print(e)
 
-	def _find_monitors(self, port_start=1000, port_end=10000):
-		for p in self.known_ports:
-			if p in EXCLUDE_PORTS: continue
-			monitor = self._check_taskmonitor(p)
-			if monitor is not None:
-				yield monitor
-		for p in range(port_start, port_end):
-			if p in EXCLUDE_PORTS: continue
-			if p in self.known_ports: continue
-			monitor = self._check_taskmonitor(p)
+
+	def _iter_monitors(self):
+		for addr in self.scan_addrs:
+			monitor = self._get_taskmonitor(addr)
 			if monitor is not None:
 				yield monitor
 
