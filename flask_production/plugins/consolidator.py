@@ -80,7 +80,7 @@ class TaskMonitorMonitor:
 
 	def _render_monitors(self):
 		content = []
-		for monitor in self._find_monitors():
+		for monitor in self._iter_monitors():
 			css = ['monitor-block']
 			attrs = {}
 			elem = ""
