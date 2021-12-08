@@ -50,12 +50,14 @@ class LocalMonitors:
 	def __init__(self,
 		app,
 		ports=[],
+		external_addrs=[],
 		page_refresh=30):
 
 		self.app = app
 		self.machine = socket.gethostname()
 		self.local_ip = socket.gethostbyname(self.machine)
 		self.ports = set(ports)
+		self.external_addrs = set(external_addrs)
 		self.page_refresh = page_refresh
 		self.app.add_url_rule("/", view_func=self._render_monitors, methods=['GET'])
 
@@ -63,15 +65,15 @@ class LocalMonitors:
 	def scan(self, min_port=1000, max_port=10000, timeout=5):
 		for conn in psutil.net_connections():
 			if conn.status == "LISTEN" and conn.laddr.port >= min_port and conn.laddr.port <= max_port:
-				m = self._get_taskmonitor(conn.laddr.port, timeout=timeout)
+				m = self._get_taskmonitor(self.local_ip, conn.laddr.port, timeout=timeout)
 				if m is not None:
 					self.ports.add(conn.laddr.port)
 				print('>> scanned', conn.laddr.port, "- found" if m is not None else "")
 
 
-	def _get_taskmonitor(self, port, timeout=5):
+	def _get_taskmonitor(self, host, port, timeout=5):
 		try:
-			monitor_url = f"http://{self.local_ip}:{port}/@taskmonitor" # need to add option to change this endpoint since task monitor has that option
+			monitor_url = f"http://{host}:{port}/@taskmonitor" # need to add option to change this endpoint since task monitor has that option
 			res = requests.get(f"{monitor_url}/json/summary", timeout=timeout).json()
 			# print(json.dumps(res, indent=4))
 			res['port'] = port
@@ -84,7 +86,11 @@ class LocalMonitors:
 
 	def _iter_monitors(self):
 		for port in self.ports:
-			monitor = self._get_taskmonitor(port)
+			monitor = self._get_taskmonitor(self.local_ip, port)
+			if monitor is not None:
+				yield monitor
+		for host, port in self.external_addrs:
+			monitor = self._get_taskmonitor(host, port)
 			if monitor is not None:
 				yield monitor
 
