@@ -1,11 +1,12 @@
 import socket
 import requests
-import json
+# import json
+import psutil
 
 from .html_templates import * # pylint: disable=unused-wildcard-import
 
 
-class TaskMonitorMonitor:
+class LocalMonitors:
 	'''Automatically scan ports and consolidate many TaskMonitors'''
 
 	STYLES = '''
@@ -48,32 +49,41 @@ class TaskMonitorMonitor:
 
 	def __init__(self,
 		app,
-		scan_addrs,
+		ports=[],
 		page_refresh=30):
 
 		self.app = app
 		self.machine = socket.gethostname()
-		self.scan_addrs = scan_addrs
+		self.ports = set(ports)
 		self.page_refresh = page_refresh
 		self.app.add_url_rule("/", view_func=self._render_monitors, methods=['GET'])
 
 
-	def _get_taskmonitor(self, addr):
+	def scan(self, min_port=1000, max_port=10000, timeout=5):
+		for conn in psutil.net_connections():
+			if conn.status == "LISTEN" and conn.laddr.port >= min_port and conn.laddr.port <= max_port:
+				print('>> scanning', conn.laddr.port)
+				m = self._get_taskmonitor(conn.laddr.port, timeout=timeout)
+				if m is not None:
+					self.ports.add(conn.laddr.port)
+
+
+	def _get_taskmonitor(self, port, timeout=5):
 		try:
-			host, port = addr
-			monitor_url = f"http://{host}:{port}/@taskmonitor"
-			res = requests.get(f"{monitor_url}/json/summary").json()
+			monitor_url = f"http://127.0.0.1:{port}/@taskmonitor"
+			res = requests.get(f"{monitor_url}/json/summary", timeout=timeout).json()
 			# print(json.dumps(res, indent=4))
 			res['port'] = port
 			res['url'] = monitor_url
 			return res
-		except Exception as e:
-			print(e)
+		except Exception:
+			# print(e)
+			return None
 
 
 	def _iter_monitors(self):
-		for addr in self.scan_addrs:
-			monitor = self._get_taskmonitor(addr)
+		for port in self.ports:
+			monitor = self._get_taskmonitor(port)
 			if monitor is not None:
 				yield monitor
 
