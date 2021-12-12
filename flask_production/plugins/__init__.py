@@ -1,2 +1,2 @@
 from .task_monitor import TaskMonitor
-from .consolidator import LocalMonitors
+from .ctrl_panel import ControlPanel
