@@ -128,6 +128,7 @@ class Job(object):
 
 	@classmethod
 	def is_valid_interval(cls, interval):
+		'''The generic Job class only supports these interval. See subclasses for others'''
 		return interval in cls.RUNABLE_DAYS
 
 	def __init__(self, jobid, every, at, func, kwargs):
@@ -427,8 +428,6 @@ class TaskScheduler(object):
 		self.jobs = []
 		self.on = self.every
 		self._check_interval = check_interval
-		self.interval = None
-		self.temp_time = None
 		if holidays_calendar is not None:
 			self.holidays_calendar = holidays_calendar
 		else:
@@ -439,17 +438,24 @@ class TaskScheduler(object):
 			fh = logging.FileHandler(self.log_filepath)
 			fh.setFormatter(LOG_FORMATTER)
 			LOGGER.addHandler(fh)
+		self.__reset_defaults()
+
+	def __reset_defaults(self):
+		self.interval = None
+		self.temp_time = None
 		self._strict_monthly = None
+		self.job_calendar = None
 
 	def __current_timestring(self):
 		return dt.now().strftime("%H:%M")
 
-	def every(self, interval):
+	def every(self, interval, calendar=None):
 		'''
 		interval is either one of the keys of Job.RUNABLE_DAYS
 		or integer denoting number of seconds for RepeatJob
 		'''
 		self.interval = interval
+		self.job_calendar = calendar
 		return self
 
 	def strict_date(self, strict):
@@ -493,15 +499,13 @@ class TaskScheduler(object):
 			raise BadScheduleError("{} is not valid\n".format(self.interval))
 
 		j.init(
-			calendar=self.holidays_calendar,
+			calendar=self.holidays_calendar if self.job_calendar is None else self.job_calendar,
 			generic_err_handler=self.on_job_error
 		)
 		if do_parallel:
 			j = AsyncJobWrapper(j)
 		self.jobs.append(j)
-		self.temp_time = None
-		self.interval = None
-		self._strict_monthly = None
+		self.__reset_defaults()
 		return j
 
 	def do_parallel(self, func, **kwargs):
