@@ -204,26 +204,18 @@ class TaskMonitor(object):
 		return HTML(''.join(args), title="{} Task Monitor".format(self._display_name))
 
 	def __state(self, jdict):
-		state = 'READY'
+		state = {'state':'READY', 'css': 'grey', 'title': '' }
 		if jdict['is_running']:
-			state = "RUNNING"
+			state['state'] = "RUNNING"
+			state['css'] = "yellow"
 		elif jdict['logs']['err'].strip()!='':
-			state = "ERROR"
+			state['state'] = "ERROR"
+			state['css'] = "red"
+			state['title'] = jdict['logs']['err'].strip().split("\n")[-1]
 		elif jdict['logs']['end'] is not None and jdict['logs']['log'].strip()!='':
-			state = "SUCCESS"
+			state['state'] = "SUCCESS"
+			state['css'] = "green"
 		return state
-
-	def __state_css(self, state):
-		css = []
-		if state=="READY":
-			css = 'grey'
-		elif state=="RUNNING":
-			css = 'yellow'
-		elif state=="ERROR":
-			css = 'red'
-		elif state=="SUCCESS":
-			css = 'green'
-		return css
 
 	def __duration(self, jdict):
 		duration = None
@@ -288,11 +280,11 @@ class TaskMonitor(object):
 				jd = j.to_dict()
 				state = self.__state(jd)
 				summary['count'] += 1
-				if state == "ERROR":
+				if state['state'] == "ERROR":
 					summary['errors'] += 1
 				details.append({
 					'id': jd['jobid'],
-					'state': state,
+					'state': state['state'],
 					'signature': jd['signature']
 				})
 			out = {'name': self._display_name, 'summary': summary, 'details': details}
@@ -321,7 +313,7 @@ class TaskMonitor(object):
 				'Name': TD(jd['func'].replace('<', '&lt;').replace('>', '&gt;'), attrs={'title':j.func_signature()}),
 				'Schedule': TD(self.__schedule_str(jd)),
 				'Description': self.__descrTD(jd['doc']),
-				'State': TD(state, css=self.__state_css(state)),
+				'State': TD(state['state'], css=state['css'], attrs={'title': state['title']}),
 				'Start': TD(self.__date_fmt(start_dt), attrs=self.__date_sort_attr(start_dt)),
 				'End': TD(self.__date_fmt(end_dt), attrs=self.__date_sort_attr(end_dt)),
 				'Time Taken': TD(duration),
@@ -367,11 +359,11 @@ class TaskMonitor(object):
 
 		rerun_btn = '''<button class="rerun-btn" onclick="{}" {}>Rerun</button>'''.format(
 			'''rerun_trigger('{}', {})'''.format(job_funcname, n),
-			"disabled" if state=="RUNNING" else ""
+			"disabled" if state['state']=="RUNNING" else ""
 		)
 		rows = [
 			TR([ titleTD("Schedule"), TD(self.__schedule_str(jobd)), ]),
-			TR([ titleTD("State"), TD(state, css=self.__state_css(state)) ]),
+			TR([ titleTD("State"), TD(state['state'], css=state['css']) ]),
 			TR([ titleTD("Start Time"), TD(self.__date_fmt(jobd['logs']['start'])) ]),
 			TR([ titleTD("End Time"), TD(self.__date_fmt(jobd['logs']['end'])) ]),
 			TR([ titleTD("Time Taken"), TD(self.__duration(jobd)) ]),
