@@ -232,7 +232,7 @@ class TaskMonitor(object):
 			if seconds >= 60:
 				minutes = seconds // 60
 				seconds = seconds % 60
-				duration = "{}:{} minutes".format(minutes, seconds)
+				duration = "{}:{} minutes".format(minutes, str(seconds).zfill(2))
 			elif seconds==1:
 				duration = "{} second".format(seconds)
 			else:
