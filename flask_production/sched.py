@@ -115,7 +115,7 @@ class Job(object):
 		'weekend': lambda d, hols : d.isoweekday() > 5,
 		'businessday': lambda d, hols : d not in hols and d.isoweekday() < 6,
 		'holiday': lambda d, hols : d in hols or d.isoweekday() > 5,
-		'trading-holiday': lambda d, hols : d in hols,
+		'trading-holiday': lambda d, hols : d in hols and d.isoweekday() < 6, # trading-holidays don't count if they fall on weekends
 		# days of the week
 		'monday': lambda d, hols: d.isoweekday() == 1,
 		'tuesday': lambda d, hols: d.isoweekday() == 2,
