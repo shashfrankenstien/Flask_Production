@@ -18,4 +18,4 @@ class TradingHolidays(holidays.UnitedStates):
 		# 2021-12-31 is not a holiday apparently :( and windows version seems to think it is
 		nye_2021 = date(2021, 12, 31)
 		if nye_2021 in self:
-			self.pop(date(2021, 12, 31), None)
+			self.pop(nye_2021, None)
