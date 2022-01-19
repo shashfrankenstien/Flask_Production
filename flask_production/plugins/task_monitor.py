@@ -93,6 +93,7 @@ class TaskMonitor(object):
 				color:white;
 				font-weight:bold;
 			}
+			tr.row-hidden { display:none; }
 			a > button {
 				width:100%;
 				height:100%;
@@ -181,6 +182,17 @@ class TaskMonitor(object):
 			pre, code {
 				background-color:transparent !important;
 				overflow:visible !important;
+			}
+			input[type=text] {
+				width: 250px;
+				padding: 6px 15px;
+				margin: 8px 0;
+				border: 2px solid #999;
+				border-radius: 3px;
+				outline: none;
+			}
+			input[type=text]:focus {
+				outline: #ccc solid 1px;
 			}
 		</style>
 		'''
@@ -324,7 +336,33 @@ class TaskMonitor(object):
 		head = [TH(th, default_sort=(th=="Next Run") ) for th in d[0].keys()]	# apply sorting to 'next run'
 		all_jobs_table = TABLE(thead=THEAD(head), tbody=TBODY(rows), elem_id=table_id)
 		rerun_txt = SMALL(f"Auto-refresh in {SPAN(self._homepage_refresh, attrs={'id': 'refresh-msg'})} seconds")
+		filter_input = INPUT("", attrs={'type':'text', 'placeholder':'Filter', 'id': 'filter-box'})
 
+		filter_func = '''
+		function filter_table(inp) {
+			var search_term = inp.value.trim()
+			var t = document.getElementById("all-jobs")
+			if (search_term==="") {
+				t.querySelectorAll("tbody tr").forEach(tr=>tr.classList.remove("row-hidden"))
+			} else {
+				t.querySelectorAll("tbody tr").forEach(tr=>{
+					var found = false
+					tr.querySelectorAll('td').forEach(td=>{
+						if (td.innerText.toLowerCase().includes(search_term.trim().toLowerCase()))
+							found = true
+					})
+					if (!found)
+						tr.classList.add("row-hidden")
+					else
+						tr.classList.remove("row-hidden")
+				})
+			}
+		}
+		const filter_box = document.getElementById("filter-box");
+		filter_box.addEventListener("input", e=>filter_table(e.target));
+		filter_box.focus();
+		filter_table(filter_box);
+		'''
 		auto_reload_script = '''
 		new Tablesort(document.getElementById('{}'));
 		let COUNT_DOWN = {}
@@ -339,13 +377,15 @@ class TaskMonitor(object):
 			}}, 1000)
 		}})
 		'''.format(table_id, self._homepage_refresh)
+
 		return self.__html_wrap(
 			self.STYLES,
 			H(2, "{} - Task Monitor".format(self._display_name)),
 			SPAN("Running since {}".format(self._init_dt)),
 			rerun_txt,
+			filter_input,
 			all_jobs_table,
-			SCRIPT(auto_reload_script)
+			SCRIPT(filter_func + auto_reload_script),
 		)
 
 	def __show_one(self, n):

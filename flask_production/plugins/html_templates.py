@@ -73,6 +73,9 @@ def TD(content, colspan=1, rowspan=1, css=[], attrs={}):
 def TR(row, css=[], attrs={}):
 	return _TAG('tr', ''.join(row), css, attrs)
 
+def INPUT(content, css=[], attrs={}):
+	return _TAG('input', content, css, attrs)
+
 def SCRIPT(s):
 	return "<script>{}</script>".format(s)
 
