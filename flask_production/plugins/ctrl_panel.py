@@ -173,7 +173,10 @@ class ControlPanel:
 				}}
 			}}, 1000)
 			document.querySelectorAll('.monitor-block:not(.no-page)').forEach(block=>{{
-				block.addEventListener('click', ()=>window.location.href=block.getAttribute("data-url"))
+				block.addEventListener('click', ()=>{{
+					sessionStorage.removeItem("filter_term");  // this may be set by a previous taskmonitor
+					window.location.href=block.getAttribute("data-url")
+				}})
 			}})
 		}});
 		'''.format(page_refresh=self.page_refresh))
