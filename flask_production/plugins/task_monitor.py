@@ -379,6 +379,12 @@ class TaskMonitor(object):
 				}
 			}, 1000)
 		})
+		window.addEventListener('keydown', (event) => {
+			if(event.key=='Escape'|| event.key=='Esc') {
+				filter_box.value = "";
+				filter_table(filter_box);
+			}
+		});
 		'''
 
 		return self.__html_wrap(
