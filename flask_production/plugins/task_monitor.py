@@ -370,11 +370,12 @@ class TaskMonitor(object):
 		filter_table(filter_box);
 
 		window.addEventListener('load', (event) => {
-			setInterval(()=>{
+			const timer = setInterval(()=>{
 				if (COUNT_DOWN > 0) {
 					COUNT_DOWN --
 					document.getElementById('refresh-msg').innerText = COUNT_DOWN
 				} else {
+					clearInterval(timer)
 					location.reload()
 				}
 			}, 1000)
@@ -481,9 +482,10 @@ class TaskMonitor(object):
 			}} else if ( isNaN(next_run) ) {{ // if not number
 				document.getElementById("next-run-in").innerHTML = 'Never'
 			}} else {{
-				setInterval(()=>{{
+				const timer = setInterval(()=>{{
 					let ttr = next_run-Date.now()
 					if (ttr<=0) {{
+						clearInterval(timer)
 						location.reload()
 					}} else {{
 						document.getElementById("next-run-in").innerHTML = countdown_str(ttr/1000)

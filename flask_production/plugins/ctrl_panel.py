@@ -164,11 +164,12 @@ class ControlPanel:
 		auto_reload = SCRIPT('''
 		let COUNT_DOWN = {page_refresh}
 		window.addEventListener('load', (event) => {{
-			setInterval(()=>{{
+			const timer = setInterval(()=>{{
 				if (COUNT_DOWN > 0) {{
 					COUNT_DOWN --
 					document.getElementById('refresh-msg').innerText = COUNT_DOWN
 				}} else {{
+					clearInterval(timer)
 					location.reload()
 				}}
 			}}, 1000)

@@ -151,7 +151,7 @@ class Job(object):
 		'''initialize extra attributes of job'''
 		self.calendar = calendar
 		self._generic_err_handler = generic_err_handler
-		self._startup_offset = startup_offset
+		self._startup_offset = startup_offset # look back on tasks if task scheduler just started
 		self._run_info = _JobRunLogger()
 		self.schedule_next_run()
 		print(self)
@@ -300,7 +300,8 @@ class OneTimeJob(Job):
 		Y, m, d = self.interval.split('-')
 		n = dt(int(Y), int(m), int(d), int(H), int(M), 0)
 
-		if just_ran or dt.now() > n + timedelta(minutes=3):
+		startup_offset_mins = int(self._startup_offset / 60.0) # look back on tasks if task scheduler just started
+		if just_ran or dt.now() > n + timedelta(minutes=startup_offset_mins):
 			self.next_timestamp = 0
 		else:
 			self.next_timestamp = self.to_timestamp(n)
@@ -366,7 +367,8 @@ class MonthlyJob(Job):
 		# - day has already passed, or
 		# - day is today, but time has already passed
 		day_passed = interval < sched_day.day # True if day already passed this month
-		time_passed = interval == sched_day.day and (int(H) < sched_day.hour or (int(H) == sched_day.hour and (int(M) + 3 ) < sched_day.minute)) # 3 min look back on tasks
+		startup_offset_mins = int(self._startup_offset / 60.0) # look back on tasks if task scheduler just started
+		time_passed = interval == sched_day.day and (int(H) < sched_day.hour or (int(H) == sched_day.hour and (int(M) + startup_offset_mins ) < sched_day.minute))
 
 		if just_ran or day_passed or time_passed:
 			sched_day += monthdelta(1) # switch to next month
