@@ -341,33 +341,9 @@ class TaskMonitor(object):
 		'''.format(table_id, self._homepage_refresh)
 
 		js_functions = '''
-		function filter_table(inp) {
-			var filter_term = inp.value.trim()
-			sessionStorage.setItem("filter_term", filter_term)
-			var t = document.getElementById("all-jobs")
-			if (filter_term==="") {
-				t.querySelectorAll("tbody tr").forEach(tr=>tr.classList.remove("row-hidden"))
-			} else {
-				t.querySelectorAll("tbody tr").forEach(tr=>{
-					var found = false
-					tr.querySelectorAll('td').forEach(td=>{
-						if (td.innerText.toLowerCase().includes(filter_term.trim().toLowerCase()))
-							found = true
-					})
-					if (!found)
-						tr.classList.add("row-hidden")
-					else
-						tr.classList.remove("row-hidden")
-				})
-			}
-		}
+		const table = document.getElementById("all-jobs")
 		const filter_box = document.getElementById("filter-box");
-		const prev_filter = sessionStorage.getItem("filter_term")
-		if (prev_filter)
-			filter_box.value = prev_filter
-		filter_box.addEventListener("input", e=>filter_table(e.target));
-		filter_box.focus();
-		filter_table(filter_box);
+		const tf = new TableFilter(table, filter_box)
 
 		window.addEventListener('load', (event) => {
 			const timer = setInterval(()=>{
@@ -380,12 +356,6 @@ class TaskMonitor(object):
 				}
 			}, 1000)
 		})
-		window.addEventListener('keydown', (event) => {
-			if(event.key=='Escape'|| event.key=='Esc') {
-				filter_box.value = "";
-				filter_table(filter_box);
-			}
-		});
 		'''
 
 		return self.__html_wrap(
