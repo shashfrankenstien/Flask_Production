@@ -366,11 +366,14 @@ class MonthlyJob(Job):
 		# - task just ran, or
 		# - day has already passed, or
 		# - day is today, but time has already passed
+		# - day is after today, and today is end of month and time has already passed (ex: 31st while current month has 28 or 30 days)
 		day_passed = interval < sched_day.day # True if day already passed this month
 		startup_offset_mins = int(self._startup_offset / 60.0) # look back on tasks if task scheduler just started
-		time_passed = interval == sched_day.day and (int(H) < sched_day.hour or (int(H) == sched_day.hour and (int(M) + startup_offset_mins ) < sched_day.minute))
+		_pure_time_passed = (int(H) < sched_day.hour or (int(H) == sched_day.hour and (int(M) + startup_offset_mins ) < sched_day.minute))
+		time_passed = interval == sched_day.day and _pure_time_passed
+		last_day_case = interval > sched_day.day and self.__last_day_of_month(sched_day) == sched_day.day and _pure_time_passed
 
-		if just_ran or day_passed or time_passed:
+		if just_ran or day_passed or time_passed or last_day_case:
 			sched_day += monthdelta(1) # switch to next month
 
 		# handle cases where the interval day doesn't occur in all months (ex: 31st)
