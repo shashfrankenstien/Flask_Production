@@ -5,3 +5,8 @@ __pycache__
 
 func_test.py
 consolidate.py
+
+
+*.egg-info
+build
+dist
