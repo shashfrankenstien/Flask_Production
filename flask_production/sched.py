@@ -148,7 +148,7 @@ class Job(object):
 		self._err_handler = None
 		self._func_src_code = inspect.getsource(self.func)
 
-	def init(self, calendar, generic_err_handler=None, startup_offset=180):
+	def init(self, calendar, generic_err_handler=None, startup_offset=0):
 		'''initialize extra attributes of job'''
 		self.calendar = calendar
 		self._generic_err_handler = generic_err_handler
