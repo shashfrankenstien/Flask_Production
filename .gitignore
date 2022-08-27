@@ -2,6 +2,7 @@
 __pycache__
 *.pytest_cache
 *.log
+*.log.[1-9]
 
 func_test.py
 consolidate.py

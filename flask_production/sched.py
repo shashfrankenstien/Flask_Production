@@ -10,6 +10,7 @@ import inspect
 from contextlib import contextmanager
 import traceback
 import logging
+from logging.handlers import RotatingFileHandler
 
 # default logging configuration
 # logging.captureWarnings(True)
@@ -428,7 +429,9 @@ class TaskScheduler(object):
 		check_interval=5,
 		holidays_calendar=None,
 		on_job_error=None,
-		log_filepath=None):
+		log_filepath=None,
+		log_maxsize=20*1024*1024,
+		log_backups=1):
 
 		self.jobs = []
 		self.on = self.every
@@ -440,7 +443,11 @@ class TaskScheduler(object):
 		self.on_job_error = on_job_error
 		self.log_filepath = log_filepath
 		if self.log_filepath is not None:
-			fh = logging.FileHandler(self.log_filepath)
+			fh = RotatingFileHandler(
+				filename=self.log_filepath,
+				maxBytes=log_maxsize,
+				backupCount=log_backups
+			)
 			fh.setFormatter(LOG_FORMATTER)
 			LOGGER.addHandler(fh)
 		self.__reset_defaults()

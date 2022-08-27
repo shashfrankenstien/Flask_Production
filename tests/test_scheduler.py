@@ -1,4 +1,4 @@
-import os
+import os, glob
 import time
 import threading
 import json
@@ -11,6 +11,8 @@ from flask_production.sched import LOGGER, BadScheduleError
 
 import pytest
 
+LOGGING_TEST_FILE = 'testlog.log'
+
 def job(x, y):
 	time.sleep(0.1)
 	print(x, y)
@@ -19,9 +21,9 @@ def pretty_print(d):
 	print(json.dumps(d, indent=4, default=str))
 
 def teardown_function(function):
-	log_file = 'testlog.log'
-	if os.path.isfile(log_file):
-		os.remove(log_file)
+	for f in glob.glob(LOGGING_TEST_FILE+'*'):
+		if os.path.isfile(f):
+			os.remove(f)
 
 
 def test_registry():
@@ -221,8 +223,7 @@ def test_print_capture():
 		print("Slow job completed")
 
 	sleep_time = 1
-	log_file_path = 'testlog.log'
-	s = TaskScheduler(log_filepath=log_file_path)
+	s = TaskScheduler(log_filepath=LOGGING_TEST_FILE)
 	s.every(1).do_parallel(slow_job, sleep_time=sleep_time)
 	s.check()
 
@@ -242,14 +243,47 @@ def test_print_capture():
 	assert('stopping' not in j0['logs']['log'])
 	pretty_print(j0)
 	# test log file
-	assert(os.path.isfile(log_file_path)==True)
-	with open(log_file_path, 'r') as lf:
+	assert(os.path.isfile(LOGGING_TEST_FILE)==True)
+	with open(LOGGING_TEST_FILE, 'r') as lf:
 		assert('Slow job completed' in lf.read())
 	for h in LOGGER.handlers:
 		h.close()
 		LOGGER.removeHandler(h)
-	if os.path.isfile(log_file_path): os.remove(log_file_path)
-	assert(os.path.isfile(log_file_path)==False)
+	if os.path.isfile(LOGGING_TEST_FILE): os.remove(LOGGING_TEST_FILE)
+	assert(os.path.isfile(LOGGING_TEST_FILE)==False)
+
+
+def test_log_rotation():
+	def slow_job(sleep_time):
+		time.sleep(sleep_time)
+		print("Slow job completed")
+
+	sleep_time = 1
+	s = TaskScheduler(log_filepath=LOGGING_TEST_FILE, log_maxsize=100)
+	s.every(1).do_parallel(slow_job, sleep_time=sleep_time)
+	s.check()
+
+	counter = 4
+	while counter>0:
+		s.check()
+		counter -= 1
+		time.sleep(0.5)
+	print("stopping")
+	s.join()
+
+	# test log file
+	assert(os.path.isfile(LOGGING_TEST_FILE)==True)
+	with open(LOGGING_TEST_FILE, 'r') as lf:
+		assert(len(lf.read().encode('utf-8'))<=100)
+
+	assert(os.path.isfile(LOGGING_TEST_FILE+".1")==True)
+	with open(LOGGING_TEST_FILE+".1", 'r') as lf:
+		assert(len(lf.read().encode('utf-8'))<=100)
+
+	for h in LOGGER.handlers:
+		h.close()
+		LOGGER.removeHandler(h)
+
 
 
 def test_silent_run():
@@ -258,8 +292,7 @@ def test_silent_run():
 		print("Slow job completed")
 
 	sleep_time = 1
-	log_file_path = 'testlog.log'
-	s = TaskScheduler(log_filepath=log_file_path)
+	s = TaskScheduler(log_filepath=LOGGING_TEST_FILE)
 	s.every(1).do_parallel(slow_job, sleep_time=sleep_time).silently()
 	s.check()
 
@@ -279,14 +312,14 @@ def test_silent_run():
 	assert('stopping' not in j0['logs']['log'])
 	pretty_print(j0)
 	# test log file
-	assert(os.path.isfile(log_file_path)==True)
-	with open(log_file_path, 'r') as lf:
+	assert(os.path.isfile(LOGGING_TEST_FILE)==True)
+	with open(LOGGING_TEST_FILE, 'r') as lf:
 		assert('Slow job completed' in lf.read())
 	for h in LOGGER.handlers:
 		h.close()
 		LOGGER.removeHandler(h)
-	if os.path.isfile(log_file_path): os.remove(log_file_path)
-	assert(os.path.isfile(log_file_path)==False)
+	if os.path.isfile(LOGGING_TEST_FILE): os.remove(LOGGING_TEST_FILE)
+	assert(os.path.isfile(LOGGING_TEST_FILE)==False)
 
 
 def test_job_docstring():
