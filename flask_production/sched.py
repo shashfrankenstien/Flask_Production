@@ -27,6 +27,30 @@ from ._capture import print_capture
 USHolidays = holidays.US()
 
 
+__all__ = ['TaskScheduler'] # public classes (used to generate documentation using pdoc)
+
+
+
+RUNABLE_DAYS = {
+	'day': lambda d, hols : True,
+	'weekday': lambda d, hols : d.isoweekday() < 6,
+	'weekend': lambda d, hols : d.isoweekday() > 5,
+	'businessday': lambda d, hols : d not in hols and d.isoweekday() < 6,
+	'holiday': lambda d, hols : d in hols or d.isoweekday() > 5,
+	'trading-holiday': lambda d, hols : d in hols and d.isoweekday() < 6, # trading-holidays don't count if they fall on weekends
+	# days of the week
+	'monday': lambda d, hols: d.isoweekday() == 1,
+	'tuesday': lambda d, hols: d.isoweekday() == 2,
+	'wednesday': lambda d, hols: d.isoweekday() == 3,
+	'thursday': lambda d, hols: d.isoweekday() == 4,
+	'friday': lambda d, hols: d.isoweekday() == 5,
+	'saturday': lambda d, hols: d.isoweekday() == 6,
+	'sunday': lambda d, hols: d.isoweekday() == 7,
+}
+
+
+
+
 class _JobRunLogger(object):
 	'''
 	logging class to capture any print statements within a job
@@ -110,27 +134,10 @@ class _JobRunLogger(object):
 class Job(object):
 	'''standard job class'''
 
-	RUNABLE_DAYS = {
-		'day': lambda d, hols : True,
-		'weekday': lambda d, hols : d.isoweekday() < 6,
-		'weekend': lambda d, hols : d.isoweekday() > 5,
-		'businessday': lambda d, hols : d not in hols and d.isoweekday() < 6,
-		'holiday': lambda d, hols : d in hols or d.isoweekday() > 5,
-		'trading-holiday': lambda d, hols : d in hols and d.isoweekday() < 6, # trading-holidays don't count if they fall on weekends
-		# days of the week
-		'monday': lambda d, hols: d.isoweekday() == 1,
-		'tuesday': lambda d, hols: d.isoweekday() == 2,
-		'wednesday': lambda d, hols: d.isoweekday() == 3,
-		'thursday': lambda d, hols: d.isoweekday() == 4,
-		'friday': lambda d, hols: d.isoweekday() == 5,
-		'saturday': lambda d, hols: d.isoweekday() == 6,
-		'sunday': lambda d, hols: d.isoweekday() == 7,
-	}
-
 	@classmethod
 	def is_valid_interval(cls, interval):
 		'''The generic Job class only supports these interval. See subclasses for others'''
-		return interval in cls.RUNABLE_DAYS
+		return interval in RUNABLE_DAYS
 
 	def __init__(self, jobid, every, at, func, kwargs):
 		if str(every) == 'holiday':
@@ -186,7 +193,7 @@ class Job(object):
 			self.next_timestamp = self.to_timestamp(next_day)#next_day.timestamp()
 
 	def _job_must_run_today(self, date=None):
-		return self.RUNABLE_DAYS[self.interval](date or dt.now(), self.calendar)
+		return RUNABLE_DAYS[self.interval](date or dt.now(), self.calendar)
 
 	def is_due(self):
 		'''test if job should run now'''
@@ -423,7 +430,17 @@ class BadScheduleError(Exception):
 
 
 class TaskScheduler(object):
-	'''task scheduler class to manage and run jobs'''
+	"""
+	TaskScheduler: main class to setup, run and manage jobs
+
+	Args:
+		check_interval (int): how often to check for pending jobs
+		holidays_calendar (holidays.Calendar): calendar to use for intervals like `businessday`
+		on_job_error (function(e)): function to call if any job fails
+		log_filepath (path): file to write logs to
+		log_maxsize (int): byte limit per log file
+		log_backups (int): number of backups of logs to retain
+	"""
 
 	def __init__(self,
 		check_interval=5,
@@ -463,7 +480,7 @@ class TaskScheduler(object):
 
 	def every(self, interval, calendar=None):
 		'''
-		interval is either one of the keys of Job.RUNABLE_DAYS
+		interval is either one of the keys of RUNABLE_DAYS
 		or integer denoting number of seconds for RepeatJob
 		'''
 		self.interval = interval

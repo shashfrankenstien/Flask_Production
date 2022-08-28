@@ -1,4 +1,4 @@
-Flask_Production
+flask-production
 ================
 
 Cherrypy prod server for Flask + parallel task scheduler
@@ -15,29 +15,75 @@ Installation
 Usage example
 -------------
 
-Cherrypy Server
+CherryFlask
 ~~~~~~~~~~~~~~~
-.. code-block:: python
+``Cherrypy`` server on top of ``Flask`` app
+
+.. code:: python
+
+   CherryFlask(app, scheduler=None, silent=False)
+
+
+Parameters:
+
+- **app** *(Flask)*: ``Flask`` application
+
+- **scheduler** *(TaskScheduler)*: task scheduler to run in parallel with ``Flask`` app
+
+- **silent** *(bool)*: don't print logs
+      - default False
+
+
+
+.. code:: python
 
    from flask import Flask
    from flask_production import CherryFlask
 
    app = Flask(__name__)
-   cherry = CherryFlask(app)
+   ...
 
+   cherry = CherryFlask(app)
    cherry.run(host="0.0.0.0", port=8080, threads=5, debug=False)
 
 |
 
 
-Cherrypy Server + TaskScheduler
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-.. code-block:: python
+TaskScheduler
+~~~~~~~~~~~~~~~
+| Main class to setup, run and manage jobs
 
-   from flask import Flask
-   from flask_production import CherryFlask, TaskScheduler
 
-   app = Flask(__name__)
+.. code:: python
+
+   TaskScheduler(check_interval=5,
+      holidays_calendar=None,
+      on_job_error=None,
+      log_filepath=None,
+      log_maxsize=20*1024*1024, # 20 MB
+      log_backups=1)
+
+
+Parameters:
+
+- **check_interval** *(int)*: how often to check for pending jobs
+      - default 5 seconds
+
+- **holidays_calendar** *(holidays.HolidayBase)*: calendar to use for intervals like ``businessday``
+      - default US holidays
+
+- **on_job_error** *(func(e))*: function to call if any job fails
+- **log_filepath** *(path)*: file to write logs to
+- **log_maxsize** *(int)*: byte limit per log file
+      - default 20 mb (only effective if log_filepath is provided)
+- **log_backups** *(int)*: number of backups of logs to retain
+      - default 1 (only effective if log_filepath is provided)
+
+
+
+.. code:: python
+
+   from flask_production import TaskScheduler
 
    sched = TaskScheduler(check_interval=2)
 
@@ -57,20 +103,64 @@ Cherrypy Server + TaskScheduler
    print(example_job.to_dict())
    print(sched.jobs[-1].to_dict()) # same job
 
+   sched.start() # starts the task scheduler and blocks
+..
+
+
+Instead of ``sched.start()``, TaskScheduler can be run in parallel with a Flask application using ``CherryFlask``
+
+.. code:: python
+
+   from flask import Flask
+   from flask_production import TaskScheduler, CherryFlask
+
+   app = Flask(__name__)
+   ...
+
+   sched = TaskScheduler()
+   ...
+
    cherry = CherryFlask(app, scheduler=sched)
    cherry.run(host="0.0.0.0", port=8080, threads=5, debug=False)
 
 ..
 
+
 |
 
-TaskMonitor Plugin
-~~~~~~~~~~~~~~~~~~~
+TaskMonitor
+~~~~~~~~~~~~~~
+
 | The TaskScheduler exposes a list of Job objects through the ``.jobs`` attribute
 | Job information and logs from the last execution are available using the ``.to_dict()`` method
 | TaskMonitor uses these features to provide a web interface to view and rerun tasks
 
-.. code-block:: python
+
+
+.. code:: python
+
+   TaskMonitor(
+      app,
+      sched,
+      display_name=None,
+      endpoint="@taskmonitor",
+      homepage_refresh=30,
+      taskpage_refresh=5)
+
+Parameters:
+
+- **app** *(int)*: ``Flask`` application
+- **sched** *(TaskScheduler)*: task scheduler with task definitions
+- **display_name** *(str)*: name of the application to be displayed
+      - default app.name
+
+- **endpoint** *(str)*:
+- **homepage_refresh** *(int)*:
+- **taskpage_refresh** *(int)*:
+
+
+
+.. code:: python
 
    from flask import Flask
    from flask_production import CherryFlask, TaskScheduler

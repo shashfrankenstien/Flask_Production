@@ -6,193 +6,193 @@ import json
 from .html_templates import * # pylint: disable=unused-wildcard-import
 
 
-class TaskMonitor(object):
+STYLES = '''
+<style>
+	html {
+		--console-bg: #333333;
+		--thumb-bg: grey;
+	}
+	body {
+		width:100%;
+		height:100%;
+		margin: 0;
+		display:flex;
+		flex-direction:column;
+		align-items:center;
+	}
+	*::-webkit-scrollbar {
+		width: 14px !important;
+		height: 14px !important;
+	}
+	* {
+		scrollbar-width: thin;
+		scrollbar-color: var(--thumb-bg) var(--console-bg);
+	}
+	*::-webkit-scrollbar-track {
+		background: var(--console-bg);
+	}
+	*::-webkit-scrollbar-thumb {
+		background-color: var(--thumb-bg) ;
+		border-radius: 6px;
+		border: 3px solid var(--console-bg);
+	}
+	*::-webkit-scrollbar-corner {
+		background-color: var(--console-bg) ;
+	}
+	th[role=columnheader]:not(.no-sort) { /*tablesort.css*/
+		cursor: pointer;
+	}
+	th[role=columnheader]:not(.no-sort):after { /*tablesort.css*/
+		content: '';
+		float: right;
+		margin-top: 7px;
+		border-width: 4px 4px 0;
+		border-style: solid;
+		border-color: #e3e3e3 transparent;
+		visibility: hidden;
+		-ms-user-select: none;
+		-webkit-user-select: none;
+		-moz-user-select: none;
+		user-select: none;
+	}
+	th[aria-sort=ascending]:not(.no-sort):after { /*tablesort.css*/
+		border-width: 0 4px 4px;
+	}
+	th[aria-sort]:not(.no-sort):after { /*tablesort.css*/
+		visibility: visible;
+	}
+	small, h2 { padding-top:10px;}
+	table {
+		border-spacing: 5px;
+		border-collapse: collapse;
+		border: 1px solid #c2c2c2;
+		width:85%;
+		margin-top:20px;
+		margin-bottom:40px;
+	}
+	tr:hover { background-color: #ededed; }
+	td, th {
+		border: 1px solid #d1d1d1;
+		padding: 5px;
+	}
+	th {
+		height:2vh;
+		background-color:var(--console-bg);
+		color:white;
+	}
+	td.grey {color:#c2c2c2;}
+	td.yellow {background-color:yellow;}
+	td.green {
+		background-color:#d2ffcc;
+		color:green;
+	}
+	td.red {
+		background-color:red;
+		color:white;
+		font-weight:bold;
+	}
+	tr.row-hidden { display:none; }
+	a > button {
+		width:100%;
+		height:100%;
+		cursor:pointer;
+	}
+	.container {
+		width:100%;
+		height:100%;
+		display:flex;
+		flex-direction:row;
+	}
+	.center {
+		justify-content:center;
+		align-items:center;
+	}
+	.rerun-btn {
+		cursor: pointer;
+	}
+	.rerun-btn:disabled,.rerun-btn[disabled] {
+		cursor: not-allowed;
+	}
+	.monitor {
+		width: 30vw;
+		height: 100vh;
+		display:flex;
+		flex-flow: column;
+		align-items:center;
+	}
+	.monitor > div {
+		flex: 1 1 auto;
+		width:100%;
+		overflow-wrap: break-word;
+	}
+	.info_table {
+		border:none;
+		margin-bottom:30px;
+		width:100%;
+	}
+	.info_table td {
+		border:none;
+		width:50%;
+		text-align:left;
+	}
+	td.title {
+		font-weight:bold;
+		text-align:right !important;
+		padding-right:20px;
+	}
+	.logs_div {
+		width: 70vw;
+		height: 100vh;
+		display:flex;
+		align-items:center;
+		justify-content:center;
+	}
+	.log_table {
+		table-layout:fixed;
+		width:100%;
+		height:100%;
+		margin-top:0px;
+		margin-bottom:0px;
+		overflow:hidden;
+	}
+	.log_table td, .log_table th {
+		border:none;
+		border-left: 1px solid grey;
+		vertical-align: top;
+		overflow:hidden;
+	}
+	.console-div {
+		width:100%;
+		top:0px;
+		bottom:0px;
+		height:95vh;
+		overflow:scroll;
+		white-space: nowrap;
+		list-style-type: none;
+		font-size: 13px;
+		padding-left: 5px;
+	}
+	.console-color {
+		background-color:var(--console-bg);
+		color:white;
+	}
+	.brdr {border: 1px solid grey;}
+	pre, code {
+		background-color:transparent !important;
+		overflow:visible !important;
+	}
+	input[type=text] {
+		width: 250px;
+		padding: 6px 15px;
+		margin: 8px 0;
+		border: 1px solid #999;
+		border-radius: 3px;
+		outline: none;
+	}
+</style>
+'''
 
-	STYLES = '''
-		<style>
-			html {
-				--console-bg: #333333;
-				--thumb-bg: grey;
-			}
-			body {
-				width:100%;
-				height:100%;
-				margin: 0;
-				display:flex;
-				flex-direction:column;
-				align-items:center;
-			}
-			*::-webkit-scrollbar {
-				width: 14px !important;
-				height: 14px !important;
-			}
-			* {
-				scrollbar-width: thin;
-				scrollbar-color: var(--thumb-bg) var(--console-bg);
-			}
-			*::-webkit-scrollbar-track {
-				background: var(--console-bg);
-			}
-			*::-webkit-scrollbar-thumb {
-				background-color: var(--thumb-bg) ;
-				border-radius: 6px;
-				border: 3px solid var(--console-bg);
-			}
-			*::-webkit-scrollbar-corner {
-				background-color: var(--console-bg) ;
-			}
-			th[role=columnheader]:not(.no-sort) { /*tablesort.css*/
-				cursor: pointer;
-			}
-			th[role=columnheader]:not(.no-sort):after { /*tablesort.css*/
-				content: '';
-				float: right;
-				margin-top: 7px;
-				border-width: 4px 4px 0;
-				border-style: solid;
-				border-color: #e3e3e3 transparent;
-				visibility: hidden;
-				-ms-user-select: none;
-				-webkit-user-select: none;
-				-moz-user-select: none;
-				user-select: none;
-			}
-			th[aria-sort=ascending]:not(.no-sort):after { /*tablesort.css*/
-				border-width: 0 4px 4px;
-			}
-			th[aria-sort]:not(.no-sort):after { /*tablesort.css*/
-				visibility: visible;
-			}
-			small, h2 { padding-top:10px;}
-			table {
-				border-spacing: 5px;
-				border-collapse: collapse;
-				border: 1px solid #c2c2c2;
-				width:85%;
-				margin-top:20px;
-				margin-bottom:40px;
-			}
-			tr:hover { background-color: #ededed; }
-			td, th {
-				border: 1px solid #d1d1d1;
-				padding: 5px;
-			}
-			th {
-				height:2vh;
-				background-color:var(--console-bg);
-				color:white;
-			}
-			td.grey {color:#c2c2c2;}
-			td.yellow {background-color:yellow;}
-			td.green {
-				background-color:#d2ffcc;
-				color:green;
-			}
-			td.red {
-				background-color:red;
-				color:white;
-				font-weight:bold;
-			}
-			tr.row-hidden { display:none; }
-			a > button {
-				width:100%;
-				height:100%;
-				cursor:pointer;
-			}
-			.container {
-				width:100%;
-				height:100%;
-				display:flex;
-				flex-direction:row;
-			}
-			.center {
-				justify-content:center;
-				align-items:center;
-			}
-			.rerun-btn {
-				cursor: pointer;
-			}
-			.rerun-btn:disabled,.rerun-btn[disabled] {
-				cursor: not-allowed;
-			}
-			.monitor {
-				width: 30vw;
-				height: 100vh;
-				display:flex;
-				flex-flow: column;
-				align-items:center;
-			}
-			.monitor > div {
-				flex: 1 1 auto;
-				width:100%;
-				overflow-wrap: break-word;
-			}
-			.info_table {
-				border:none;
-				margin-bottom:30px;
-				width:100%;
-			}
-			.info_table td {
-				border:none;
-				width:50%;
-				text-align:left;
-			}
-			td.title {
-				font-weight:bold;
-				text-align:right !important;
-				padding-right:20px;
-			}
-			.logs_div {
-				width: 70vw;
-				height: 100vh;
-				display:flex;
-				align-items:center;
-				justify-content:center;
-			}
-			.log_table {
-				table-layout:fixed;
-				width:100%;
-				height:100%;
-				margin-top:0px;
-				margin-bottom:0px;
-				overflow:hidden;
-			}
-			.log_table td, .log_table th {
-				border:none;
-				border-left: 1px solid grey;
-				vertical-align: top;
-				overflow:hidden;
-			}
-			.console-div {
-				width:100%;
-				top:0px;
-				bottom:0px;
-				height:95vh;
-				overflow:scroll;
-				white-space: nowrap;
-				list-style-type: none;
-				font-size: 13px;
-				padding-left: 5px;
-			}
-			.console-color {
-				background-color:var(--console-bg);
-				color:white;
-			}
-			.brdr {border: 1px solid grey;}
-			pre, code {
-				background-color:transparent !important;
-				overflow:visible !important;
-			}
-			input[type=text] {
-				width: 250px;
-				padding: 6px 15px;
-				margin: 8px 0;
-				border: 1px solid #999;
-				border-radius: 3px;
-				outline: none;
-			}
-		</style>
-		'''
+class TaskMonitor(object):
 
 	def __init__(self, app, sched, display_name=None, endpoint="@taskmonitor", homepage_refresh=30, taskpage_refresh=5):
 		self._init_dt = dt.now().strftime("%m/%d/%Y %I:%M %p") # preformatted start time
@@ -359,7 +359,7 @@ class TaskMonitor(object):
 		'''
 
 		return self.__html_wrap(
-			self.STYLES,
+			STYLES,
 			H(2, "{} - Task Monitor".format(self._display_name)),
 			SPAN("Running since {}".format(self._init_dt)),
 			rerun_txt,
@@ -477,7 +477,7 @@ class TaskMonitor(object):
 		)
 
 		return self.__html_wrap(
-			self.STYLES,
+			STYLES,
 			container,
 			SCRIPT(auto_reload_script)
 		)
@@ -498,11 +498,3 @@ class TaskMonitor(object):
 			return json.dumps({'error': error})
 		else:
 			return json.dumps({'success': True})
-
-
-class ReadOnlyTaskMonitor(TaskMonitor):
-
-	def __init__(self, *args, **kwargs):
-		super().__init__(*args, **kwargs)
-		print("Deprecation Warning:")
-		print("\tReadOnlyTaskMonitor is deprecated. Use TaskMonitor instead")
