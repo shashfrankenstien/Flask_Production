@@ -6,85 +6,87 @@ import psutil
 from .html_templates import * # pylint: disable=unused-wildcard-import
 
 
+
+STYLES = '''
+<style>
+	body {
+		width:100%;
+		height:100%;
+		margin: 0;
+		display:flex;
+		flex-direction:column;
+		align-items:center;
+	}
+	.header-bar {
+		display:flex;
+		justify-content: center;
+		align-items:center;
+		position: sticky;
+		top: 0px;
+		width:100%;
+		margin-bottom: 10px;
+	}
+	.wrapper {
+		margin: 50px;
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 30px;
+	}
+	.monitor-block {
+		width: 300px;
+		height: 120px;
+		border: thin solid lightgrey;
+		border-radius: 5px;
+		box-shadow: 5px 5px 5px #888888;
+		display:flex;
+		flex-direction:column;
+		justify-content: center;
+		align-items:center;
+		cursor:pointer;
+	}
+	.monitor-block:hover {
+		box-shadow: 2px 2px 4px #888888;
+	}
+	.error-border {
+		border: 2px solid #f53b3b;
+	}
+	.block-title {
+		flex: 2;
+		display:flex;
+		justify-content: center;
+		align-items:center;
+	}
+	.block-msg {
+		flex: 1;
+		display:flex;
+		flex-direction:row;
+		justify-content: flex-end;
+		align-items: center;
+		width:100%;
+		background-color: #eee;
+	}
+	.block-msg > div {
+		display:flex;
+		justify-content: center;
+		align-items: center;
+		padding: 2px;
+		margin: 5px;
+		width:25px;
+		height:25px;
+		background-color: white;
+		border-radius: 50%;
+	}
+	.error-msg {
+		background-color: #f53b3b !important;
+		border: none !important;
+		color: white;
+	}
+</style>
+'''
+
+
 class ControlPanel:
 	'''Automatically scan ports and consolidate many TaskMonitors'''
-
-	STYLES = '''
-		<style>
-			body {
-				width:100%;
-				height:100%;
-				margin: 0;
-				display:flex;
-				flex-direction:column;
-				align-items:center;
-			}
-			.header-bar {
-				display:flex;
-				justify-content: center;
-				align-items:center;
-				position: sticky;
-				top: 0px;
-				width:100%;
-				margin-bottom: 10px;
-			}
-			.wrapper {
-				margin: 50px;
-				display: grid;
-				grid-template-columns: repeat(3, 1fr);
-				gap: 30px;
-			}
-			.monitor-block {
-				width: 300px;
-				height: 120px;
-				border: thin solid lightgrey;
-				border-radius: 5px;
-				box-shadow: 5px 5px 5px #888888;
-				display:flex;
-				flex-direction:column;
-				justify-content: center;
-				align-items:center;
-				cursor:pointer;
-			}
-			.monitor-block:hover {
-				box-shadow: 2px 2px 4px #888888;
-			}
-			.error-border {
-				border: 2px solid #f53b3b;
-			}
-			.block-title {
-				flex: 2;
-				display:flex;
-				justify-content: center;
-				align-items:center;
-			}
-			.block-msg {
-				flex: 1;
-				display:flex;
-				flex-direction:row;
-				justify-content: flex-end;
-				align-items: center;
-				width:100%;
-				background-color: #eee;
-			}
-			.block-msg > div {
-				display:flex;
-				justify-content: center;
-				align-items: center;
-				padding: 2px;
-				margin: 5px;
-				width:25px;
-				height:25px;
-				background-color: white;
-				border-radius: 50%;
-			}
-			.error-msg {
-				background-color: #f53b3b !important;
-				border: none !important;
-				color: white;
-			}
-		</style>
-	'''
 
 	def __init__(self,
 		app,
@@ -181,7 +183,7 @@ class ControlPanel:
 		}});
 		'''.format(page_refresh=self.page_refresh))
 		return HTML(''.join([
-			self.STYLES,
+			STYLES,
 			header,
 			rerun_txt,
 			wrapper,
