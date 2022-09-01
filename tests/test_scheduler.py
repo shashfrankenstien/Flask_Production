@@ -102,6 +102,28 @@ def test_onetime():
 	assert len(s.jobs) == 1
 
 
+def test_eom():
+	s = TaskScheduler()
+	s.every("eom").do(job, x="hello", y="world")
+	eom = dt.fromtimestamp(s.jobs[0].next_timestamp)
+	assert((eom + timedelta(days=1)).day == 1)
+
+	s.every("eom-weekday").do(job, x="hello", y="world")
+	eom = dt.fromtimestamp(s.jobs[1].next_timestamp)
+	assert(eom.isoweekday() < 6)
+	eom += timedelta(days=1)
+	while eom.day != 1:
+		assert(eom.isoweekday() >= 6)
+
+	hols = TradingHolidays()
+	s.every("eom-businessday", calendar=hols).do(job, x="hello", y="world")
+	eom = dt.fromtimestamp(s.jobs[2].next_timestamp)
+	assert(eom.isoweekday() < 6 and eom not in hols)
+	eom += timedelta(days=1)
+	while eom.day != 1:
+		assert(eom.isoweekday() >= 6 or eom in hols)
+
+
 def test_monthly():
 	def day_suffixed_str(day):
 		suffix = 'th' if 11<=day<=13 else {1:'st',2:'nd',3:'rd'}.get(day%10, 'th')

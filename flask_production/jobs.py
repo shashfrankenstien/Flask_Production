@@ -19,6 +19,26 @@ class BadScheduleError(Exception):
 
 
 
+def _get_eom(d):
+	return ((d + monthdelta(1)).replace(day=1) - timedelta(days=1))
+
+def _is_eom(d, hols):
+	eom = _get_eom(d)
+	return d.date() == eom.date()
+
+def _is_eom_weekday(d, hols):
+	eom = _get_eom(d)
+	while eom.isoweekday() >= 6:
+		eom -= timedelta(days=1)
+	return d.date() == eom.date()
+
+def _is_eom_businessday(d, hols):
+	eom = _get_eom(d)
+	while eom in hols or eom.isoweekday() >= 6:
+		eom -= timedelta(days=1)
+	return d.date() == eom.date()
+
+
 
 RUNABLE_DAYS = {
 	'day': lambda d, hols : True,
@@ -35,6 +55,10 @@ RUNABLE_DAYS = {
 	'friday': lambda d, hols: d.isoweekday() == 5,
 	'saturday': lambda d, hols: d.isoweekday() == 6,
 	'sunday': lambda d, hols: d.isoweekday() == 7,
+	# end of month
+	'eom': _is_eom,
+	'eom-weekday': _is_eom_weekday,
+	'eom-businessday': _is_eom_businessday,
 }
 
 
@@ -250,8 +274,8 @@ class MonthlyJob(Job):
 	type of job that can be scheduled to run once per month
 	example interval 1st, 22nd, 30th
 	limitation: we cannot intuitively handle dates >= 29 for all months
-		- ex: 29th will fail for non leap-Feb, 31st will fail for months having less than 31 days
-		- use '_strict_date' when handing dates >= 29:
+		- ex: 31st will fail for months having less than 31 days, 29th will fail for non leap-Feb
+		- use 'self._strict_date' when handing dates >= 29:
 			if self._strict_date == True:
 				job is scheduled only on months which have the date (ex: 31st)
 			elif self._strict_date == False:
@@ -272,9 +296,6 @@ class MonthlyJob(Job):
 		match = cls.PATTERN.match(str(interval))
 		return match is not None and int(match.groups()[0]) <= 31
 
-	def __last_day_of_month(self, d):
-		return ((d + monthdelta(1)).replace(day=1) - timedelta(days=1)).day
-
 	def schedule_next_run(self, just_ran=False):
 		interval = int(self.PATTERN.match(self.interval).groups()[0])
 		H, M = self.time_string.split(':')
@@ -288,17 +309,17 @@ class MonthlyJob(Job):
 		startup_offset_mins = int(self._startup_offset / 60.0) # look back on tasks if task scheduler just started
 		_pure_time_passed = (int(H) < sched_day.hour or (int(H) == sched_day.hour and (int(M) + startup_offset_mins ) < sched_day.minute))
 		time_passed = interval == sched_day.day and _pure_time_passed
-		last_day_case = interval > sched_day.day and self.__last_day_of_month(sched_day) == sched_day.day and _pure_time_passed
+		last_day_case = interval > sched_day.day and _get_eom(sched_day).day == sched_day.day and _pure_time_passed
 
 		if just_ran or day_passed or time_passed or last_day_case:
 			sched_day += monthdelta(1) # switch to next month
 
 		# handle cases where the interval day doesn't occur in all months (ex: 31st)
-		if interval > self.__last_day_of_month(sched_day):
+		if interval > _get_eom(sched_day).day:
 			if self._strict_date==False:
-				interval = self.__last_day_of_month(sched_day) # if strict is false, run on what ever is last day of the month
+				interval = _get_eom(sched_day).day # if strict is false, run on what ever is last day of the month
 			else: # strict
-				while interval > self.__last_day_of_month(sched_day): # run only on months which have the date
+				while interval > _get_eom(sched_day).day: # run only on months which have the date
 					sched_day += monthdelta(1)
 
 		n = sched_day.replace(day=interval, hour=int(H), minute=int(M), second=0, microsecond=0)

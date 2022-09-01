@@ -11,3 +11,4 @@ consolidate.py
 *.egg-info
 build
 dist
+Dockerfile

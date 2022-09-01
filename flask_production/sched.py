@@ -112,7 +112,7 @@ class TaskScheduler(object):
 		run in a prallel thread if do_parallel is True
 		pass kwargs into 'func' at execution
 		'''
-		if self.interval is None: raise Exception('Run .at()/.every().at() before .do()')
+		if self.interval is None: raise Exception('Use .at()/.every().at() before .do()')
 		if self.temp_time is None: self.temp_time = self.__current_timestring()
 
 		new_jobid = len(self.jobs)
