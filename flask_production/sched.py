@@ -4,7 +4,7 @@ from logging.handlers import RotatingFileHandler
 import holidays
 
 
-from .job_logger import (
+from .print_logger import (
 	LOGGER,
 	LOG_FORMATTER
 )
@@ -16,6 +16,7 @@ from .jobs import (
 	RepeatJob,
 	MonthlyJob,
 	AsyncJobWrapper,
+	NeverJob,
 
 	# exceptions
 	JobExpired,
@@ -112,8 +113,10 @@ class TaskScheduler(object):
 		run in a prallel thread if do_parallel is True
 		pass kwargs into 'func' at execution
 		'''
-		if self.interval is None: raise Exception('Use .at()/.every().at() before .do()')
-		if self.temp_time is None: self.temp_time = self.__current_timestring()
+		if self.interval is None:
+			raise Exception('Use .at()/.every().at() before .do()')
+		if self.temp_time is None:
+			self.temp_time = self.__current_timestring()
 
 		new_jobid = len(self.jobs)
 		if RepeatJob.is_valid_interval(self.interval):
@@ -124,6 +127,8 @@ class TaskScheduler(object):
 			j = MonthlyJob(new_jobid, self.interval, self.temp_time, func, kwargs, strict_date=self._strict_monthly)
 		elif Job.is_valid_interval(self.interval):
 			j = Job(new_jobid, self.interval, self.temp_time, func, kwargs)
+		elif NeverJob.is_valid_interval(self.interval):
+			j = NeverJob(new_jobid, self.interval, self.temp_time, func, kwargs)
 		else:
 			raise BadScheduleError("{} is not valid\n".format(self.interval))
 
@@ -145,7 +150,8 @@ class TaskScheduler(object):
 		'''check if a job is due'''
 		for j in self.jobs.copy(): # work on copy of this list - safer in case the list changes
 			try:
-				if j.is_due(): j.run()
+				if j.is_due():
+					j.run()
 			except JobExpired:
 				self.jobs.remove(j)
 

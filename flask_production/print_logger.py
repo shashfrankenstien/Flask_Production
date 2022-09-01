@@ -21,7 +21,7 @@ LOGGER.propagate = False
 
 
 
-class _JobRunLogger(object):
+class _PrintLogger(object):
 	'''
 	logging class to capture any print statements within a job
 	also captures start time, end time and error traceback

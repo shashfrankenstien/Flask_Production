@@ -245,6 +245,8 @@ class TaskMonitor(object):
 			return "every {} seconds".format(jdict['every'])
 		elif jdict['type']=='OneTimeJob':
 			return "on {} at {}".format(jdict['every'], jdict['at'])
+		elif jdict['type']=='NeverJob':
+			return "on-demand"
 		else:
 			return "every {} at {}".format(jdict['every'], jdict['at'])
 

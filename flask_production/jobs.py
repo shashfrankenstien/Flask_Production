@@ -6,7 +6,7 @@ import threading
 import inspect
 import traceback
 
-from . import job_logger
+from . import print_logger
 
 
 
@@ -93,7 +93,7 @@ class Job(object):
 		self.calendar = calendar
 		self._generic_err_handler = generic_err_handler
 		self._startup_offset = startup_offset # look back on tasks if task scheduler just started
-		self._run_info = job_logger._JobRunLogger()
+		self._run_info = print_logger._PrintLogger()
 		self.schedule_next_run()
 		print(self)
 		return self
@@ -154,7 +154,7 @@ class Job(object):
 	def run(self, is_rerun=False):
 		'''
 		begin job run
-		redirected all print statements to _JobRunLogger
+		redirected all print statements to _PrintLogger
 		call error handlers if provided
 		'''
 		with self._run_info.start_capture(): # captures all writes to stdout
@@ -248,7 +248,8 @@ class OneTimeJob(Job):
 			self.next_timestamp = self.to_timestamp(n)
 
 	def is_due(self):
-		if self.next_timestamp==0: raise JobExpired('remove me!')
+		if self.next_timestamp==0:
+			raise JobExpired('remove me!')
 		return super().is_due()
 
 
@@ -350,3 +351,17 @@ class AsyncJobWrapper(object):
 		self.proc.daemon = True
 		self.proc.start()
 
+
+
+class NeverJob(Job):
+	'''type of job that runs only on demand (using TaskMonitor plugin)'''
+
+	@classmethod
+	def is_valid_interval(cls, interval):
+		return interval == 'on-demand'
+
+	def schedule_next_run(self, just_ran=False):
+		self.next_timestamp = 0
+
+	def is_due(self):
+		return False
