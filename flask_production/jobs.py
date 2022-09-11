@@ -88,11 +88,11 @@ class Job(object):
 		self._err_handler = None
 		self._func_src_code = inspect.getsource(self.func)
 
-	def init(self, calendar, generic_err_handler=None, startup_offset=0):
+	def init(self, calendar, generic_err_handler=None, startup_offset_mins=0):
 		'''initialize extra attributes of job'''
 		self.calendar = calendar
 		self._generic_err_handler = generic_err_handler
-		self._startup_offset = startup_offset # look back on tasks if task scheduler just started
+		self._startup_offset_mins = startup_offset_mins # look back on tasks if task scheduler just started
 		self._run_info = print_logger._PrintLogger()
 		self.schedule_next_run()
 		print(self)
@@ -111,19 +111,47 @@ class Job(object):
 	def to_timestamp(d):
 		return time.mktime(d.timetuple())+d.microsecond/1000000.0
 
+	def attach_upcoming_run_time(self, d: dt, just_ran: bool=False):
+		'''
+		attaches time to a datetime object based on the value of self.time_string
+		note: self.time_string is usually a string of the form %H:%M, but can also be a list of time strings
+		- returns earliest datetime that occurs in the future
+		- returns None if no datetimes exist in the future
+		'''
+		dt_list = []
+		def _add_dt(at):
+			if not isinstance(at, str):
+				raise BadScheduleError(f"Invalid time string '{self.time_string}'")
+			h, m = at.split(':')
+			dt_list.append(dt(d.year, d.month, d.day, int(h), int(m), 0))
+
+		if isinstance(self.time_string, (list,set,tuple)):
+			for at in self.time_string:
+				_add_dt(at)
+		else:
+			_add_dt(self.time_string)
+		# to find an upcoming time, we need to filter dt_list based on current date and time
+		now = dt.now().replace(second=0, microsecond=0)
+		if just_ran:
+			upcoming_list = [n for n in dt_list if n > now]
+		else:
+			now -= timedelta(minutes=self._startup_offset_mins)
+			upcoming_list = [n for n in dt_list if n >= now]
+		if len(upcoming_list) == 0:
+			return None
+		return min(upcoming_list)
+
 	def schedule_next_run(self, just_ran=False):
 		'''compute timestamp of the next run'''
-		h, m = self.time_string.split(':')
-		n = dt.now()
-		n = dt(n.year, n.month, n.day, int(h), int(m), 0)
-		ts = self.to_timestamp(n)
-		if self._job_must_run_today() and not just_ran and time.time() < ts+self._startup_offset:
-			self.next_timestamp = ts
-		else:
-			next_day = n + timedelta(days=1)
+		d = dt.now()
+		upcoming = self.attach_upcoming_run_time(d, just_ran=just_ran)
+		if not self._job_must_run_today() or upcoming is None:
+			next_day = d + timedelta(days=1)
 			while not self._job_must_run_today(next_day):
 				next_day += timedelta(days=1)
-			self.next_timestamp = self.to_timestamp(next_day)#next_day.timestamp()
+			upcoming = self.attach_upcoming_run_time(next_day)
+
+		self.next_timestamp = self.to_timestamp(upcoming)
 
 	def _job_must_run_today(self, date=None):
 		return RUNABLE_DAYS[self.interval](date or dt.now(), self.calendar)
@@ -142,7 +170,7 @@ class Job(object):
 				return "[..]"
 			elif isinstance(s, set):
 				return "(..)"
-			elif isinstance(s, list):
+			elif isinstance(s, dict):
 				return "{..}"
 			else:
 				return str(s)[:6] + ".." if len(str(s))>6 else str(s)
@@ -237,15 +265,14 @@ class OneTimeJob(Job):
 			return False
 
 	def schedule_next_run(self, just_ran=False):
-		H, M = self.time_string.split(':')
 		Y, m, d = self.interval.split('-')
-		n = dt(int(Y), int(m), int(d), int(H), int(M), 0)
+		n = dt(int(Y), int(m), int(d))
+		upcoming = self.attach_upcoming_run_time(n, just_ran=just_ran)
 
-		startup_offset_mins = int(self._startup_offset / 60.0) # look back on tasks if task scheduler just started
-		if just_ran or dt.now() > n + timedelta(minutes=startup_offset_mins):
+		if upcoming is None:
 			self.next_timestamp = 0
 		else:
-			self.next_timestamp = self.to_timestamp(n)
+			self.next_timestamp = self.to_timestamp(upcoming)
 
 	def is_due(self):
 		if self.next_timestamp==0:
@@ -299,20 +326,19 @@ class MonthlyJob(Job):
 
 	def schedule_next_run(self, just_ran=False):
 		interval = int(self.PATTERN.match(self.interval).groups()[0])
-		H, M = self.time_string.split(':')
 		sched_day = dt.now()
+		upcoming = self.attach_upcoming_run_time(sched_day, just_ran=just_ran)
 		# switch to next month if
 		# - task just ran, or
 		# - day has already passed, or
 		# - day is today, but time has already passed
 		# - day is after today, and today is end of month and time has already passed (ex: 31st while current month has 28 or 30 days)
+		_pure_time_passed = upcoming is None
 		day_passed = interval < sched_day.day # True if day already passed this month
-		startup_offset_mins = int(self._startup_offset / 60.0) # look back on tasks if task scheduler just started
-		_pure_time_passed = (int(H) < sched_day.hour or (int(H) == sched_day.hour and (int(M) + startup_offset_mins ) < sched_day.minute))
 		time_passed = interval == sched_day.day and _pure_time_passed
 		last_day_case = interval > sched_day.day and _get_eom(sched_day).day == sched_day.day and _pure_time_passed
 
-		if just_ran or day_passed or time_passed or last_day_case:
+		if day_passed or time_passed or last_day_case:
 			sched_day += monthdelta(1) # switch to next month
 
 		# handle cases where the interval day doesn't occur in all months (ex: 31st)
@@ -323,7 +349,7 @@ class MonthlyJob(Job):
 				while interval > _get_eom(sched_day).day: # run only on months which have the date
 					sched_day += monthdelta(1)
 
-		n = sched_day.replace(day=interval, hour=int(H), minute=int(M), second=0, microsecond=0)
+		n = self.attach_upcoming_run_time(sched_day.replace(day=interval))
 		self.next_timestamp = self.to_timestamp(n)
 
 	def __repr__(self):

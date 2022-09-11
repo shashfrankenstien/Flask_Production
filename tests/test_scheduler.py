@@ -38,6 +38,10 @@ def test_registry():
 def test_badinterval():
 	s = TaskScheduler()
 	with pytest.raises(BadScheduleError):
+		s.every("day").at(5).do(job, x="hello", y="world")
+	with pytest.raises(BadScheduleError):
+		s.every("day").at([-1,2]).do(job, x="hello", y="world")
+	with pytest.raises(BadScheduleError):
 		s.every("potato").at("10:00").do(job, x="hello", y="world")
 	with pytest.raises(BadScheduleError):
 		s.every("2020-02-30").at("10:00").do(job, x="hello", y="world") # OneTimeJob
@@ -89,26 +93,36 @@ def test_holidays():
 	assert(s.jobs[1]._job_must_run_today(date_parse("2020-01-02"))==False)
 
 
+def test_multi_intraday(): # test list of timestamps for .at()
+	sched = TaskScheduler()
+	n1 = dt.now().replace(second=0, microsecond=0)
+	n2 = (n1+timedelta(minutes=1))
+	sched.every("day").at([n1.strftime("%H:%M"), n2.strftime("%H:%M")]).do(job, x="multi", y="intraday")
+	assert(sched.jobs[0].next_timestamp==dt.timestamp(n1))
+	sched.check()
+	assert(sched.jobs[0].next_timestamp==dt.timestamp(n2))
+
+
 def test_onetime():
 	yesterday = dt.now() - timedelta(days=1)
 	tomorrow = (dt.now() + timedelta(days=1)).replace(hour=23, minute=59, second=0, microsecond=0)
-	s = TaskScheduler()
-	s.on(yesterday.strftime("%Y-%m-%d")).at("23:59").do(job, x="hello", y="world")
-	s.on(tomorrow.strftime("%Y-%m-%d")).at("23:59").do(job, x="hello", y="world")
-	for j in s.jobs:
+	sched = TaskScheduler()
+	sched.on(yesterday.strftime("%Y-%m-%d")).at("23:59").do(job, x="one", y="time")
+	sched.on(tomorrow.strftime("%Y-%m-%d")).at("23:59").do(job, x="one", y="time")
+	for j in sched.jobs:
 		assert (j.next_timestamp==dt.timestamp(tomorrow) or j.next_timestamp==0)
-	assert len(s.jobs) == 2
-	s.check()
-	assert len(s.jobs) == 1
+	assert len(sched.jobs) == 2
+	sched.check()
+	assert len(sched.jobs) == 1
 
 
 def test_eom():
 	s = TaskScheduler()
-	s.every("eom").do(job, x="hello", y="world")
+	s.every("eom").do(job, x="hello", y="eom")
 	eom = dt.fromtimestamp(s.jobs[0].next_timestamp)
 	assert((eom + timedelta(days=1)).day == 1)
 
-	s.every("eom-weekday").do(job, x="hello", y="world")
+	s.every("eom-weekday").do(job, x="hello", y="eom")
 	eom = dt.fromtimestamp(s.jobs[1].next_timestamp)
 	assert(eom.isoweekday() < 6)
 	eom += timedelta(days=1)
@@ -116,7 +130,7 @@ def test_eom():
 		assert(eom.isoweekday() >= 6)
 
 	hols = TradingHolidays()
-	s.every("eom-businessday", calendar=hols).do(job, x="hello", y="world")
+	s.every("eom-businessday", calendar=hols).do(job, x="hello", y="eom")
 	eom = dt.fromtimestamp(s.jobs[2].next_timestamp)
 	assert(eom.isoweekday() < 6 and eom not in hols)
 	eom += timedelta(days=1)
