@@ -154,9 +154,12 @@ Parameters:
 - **display_name** *(str)*: name of the application to be displayed
       - default app.name
 
-- **endpoint** *(str)*:
-- **homepage_refresh** *(int)*:
-- **taskpage_refresh** *(int)*:
+- **endpoint** *(str)*: URL endpoint where the taskmonitor can be viewed
+      - default "@taskmonitor"
+- **homepage_refresh** *(int)*: home page auto refresh interval (in seconds)
+      - default 30
+- **taskpage_refresh** *(int)*: task page auto refresh interval (in seconds)
+      - default 5
 
 
 
