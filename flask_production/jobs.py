@@ -173,7 +173,8 @@ class Job(object):
 			elif isinstance(s, dict):
 				return "{..}"
 			else:
-				return str(s)[:6] + ".." if len(str(s))>6 else str(s)
+				s_str = str(s)[:6] + ".." if len(str(s))>6 else str(s)
+				return s_str.replace("<", "*").replace(">", "*") # escaping html
 		arguments = ''
 		if self.kwargs:
 			arguments = '({})'.format(','.join(['{}={}'.format(k, readable_trim(v)) for k,v in self.kwargs.items()]))
