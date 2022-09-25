@@ -385,7 +385,7 @@ class NeverJob(Job):
 
 	@classmethod
 	def is_valid_interval(cls, interval):
-		return interval == 'on-demand'
+		return interval in ('on-demand', 'never')
 
 	def schedule_next_run(self, just_ran=False):
 		self.next_timestamp = 0

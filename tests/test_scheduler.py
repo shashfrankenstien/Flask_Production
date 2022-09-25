@@ -116,6 +116,21 @@ def test_onetime():
 	assert len(sched.jobs) == 1
 
 
+def test_never():
+	sched = TaskScheduler()
+	sched.every('on-demand').do(job, x="never", y="never")
+	sched.on('never').do(job, x="never", y="never")
+	for j in sched.jobs:
+		assert (j.next_timestamp==0)
+	assert len(sched.jobs) == 2
+	sched.check()
+	assert len(sched.jobs) == 2
+	sched.jobs[0].run()
+	assert len(sched.jobs) == 2
+	for j in sched.jobs: # assert again that they were not rescheduled after running
+		assert (j.next_timestamp==0)
+
+
 def test_eom():
 	s = TaskScheduler()
 	s.every("eom").do(job, x="hello", y="eom")

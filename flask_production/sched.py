@@ -52,7 +52,6 @@ class TaskScheduler(object):
 		log_backups=1):
 
 		self.jobs = []
-		self.on = self.every
 		self._check_interval = check_interval
 		if holidays_calendar is not None:
 			self.holidays_calendar = holidays_calendar
@@ -87,6 +86,9 @@ class TaskScheduler(object):
 		self.interval = interval
 		self.job_calendar = calendar
 		return self
+
+	def on(self, *args, **kwargs):
+		return self.every(*args, **kwargs)
 
 	def strict_date(self, strict):
 		'''
