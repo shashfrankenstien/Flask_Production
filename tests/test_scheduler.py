@@ -439,14 +439,15 @@ def test_timezones():
 	# 'now' is in NY time and schedule is in London. So it will automatically be rescheduled to next run
 	now = dt.now(tz.gettz("America/New_York"))
 	today_str = now.strftime("%A").lower() # day of the week
+	in2sec_str = now.strftime("%H:%M")
 	s.every(today_str).at(in2sec_str).timezone("Europe/London").do(job, x="hello", y=today_str)
-	test_timestamp = time.time()
+	test_timestamp = now.timestamp()
 	assert(s.jobs[-1].next_timestamp > test_timestamp+(6*24*60*60))
 	time.sleep(1)
 
-	est = s.on(dt(now.year+1, 12, 1).strftime("%Y-%m-%d")).at("8:00").do(job, x="hello", y=today_str)
+	est = s.on(dt(now.year+1, 12, 1).strftime("%Y-%m-%d")).at("8:00").timezone("America/New_York").do(job, x="hello", y=today_str)
 	# gmt = s.on(dt(now.year+1, 12, 1).strftime("%Y-%m-%d")).at("8:00").timezone("Europe/London").do(job, x="hello", y=today_str)
 	assert(est.to_datetime(est.next_timestamp).strftime('%Z')=="EST")
 
-	edt = s.on(dt(now.year+1, 6, 1).strftime("%Y-%m-%d")).at("8:00").do(job, x="hello", y=today_str)
+	edt = s.on(dt(now.year+1, 6, 1).strftime("%Y-%m-%d")).at("8:00").timezone("America/New_York").do(job, x="hello", y=today_str)
 	assert(edt.to_datetime(edt.next_timestamp).strftime('%Z')=="EDT")
