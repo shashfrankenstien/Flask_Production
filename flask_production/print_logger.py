@@ -2,6 +2,7 @@ import sys
 from datetime import datetime as dt
 import threading
 
+from dateutil import tz
 from contextlib import contextmanager
 import traceback
 import logging
@@ -27,9 +28,10 @@ class _PrintLogger(object):
 	also captures start time, end time and error traceback
 	'''
 
-	def __init__(self):
+	def __init__(self, tzname=None):
 		self._lock = threading.Lock()
 		self._reset()
+		self._tzname = tzname
 
 	@property
 	def log(self):
@@ -79,11 +81,11 @@ class _PrintLogger(object):
 		'''
 		self._reset() # clear previous run info
 		with self._lock:
-			self._started_at = dt.now()
+			self._started_at = dt.now(tz=tz.gettz(self._tzname))
 		with print_capture(callback=self._log_callback):
 			yield
 		with self._lock:
-			self._ended_at = dt.now()
+			self._ended_at = dt.now(tz=tz.gettz(self._tzname))
 
 	def set_error(self):
 		'''called when job throws error'''

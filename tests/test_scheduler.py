@@ -5,11 +5,14 @@ import json
 from datetime import datetime as dt, timedelta
 from monthdelta import monthdelta
 from dateutil.parser import parse as date_parse
+from dateutil import tz
+
 from flask_production import TaskScheduler
 from flask_production.hols import TradingHolidays
 from flask_production.sched import LOGGER, BadScheduleError
 
 import pytest
+
 
 LOGGING_TEST_FILE = 'testlog.log'
 
@@ -32,7 +35,7 @@ def test_registry():
 	s.on('2019-05-16').do(job, x="hello", y="world") # OneTimeJob
 	s.every(5).at("10:00").do(job, x="hello", y="world") # RepeatJob
 	s.every('2nd').strict_date(False).at("10:00").do(job, x="hello", y="world") # MonthlyJob
-	assert len(s.jobs) == 4
+	assert(len(s.jobs) == 4)
 
 
 def test_badinterval():
@@ -67,7 +70,7 @@ def test_day_of_week():
 	in2sec_str = now.strftime("%H:%M")
 	s = TaskScheduler()
 	s.every(today_str).at(in2sec_str).do(job, x="hello", y=today_str)
-	assert len(s.jobs) == 1
+	assert(len(s.jobs) == 1)
 	time.sleep(0.5)
 	s.check()
 	# test if next run greater than 6 days, less than 8 days from now
@@ -107,13 +110,13 @@ def test_onetime():
 	yesterday = dt.now() - timedelta(days=1)
 	tomorrow = (dt.now() + timedelta(days=1)).replace(hour=23, minute=59, second=0, microsecond=0)
 	sched = TaskScheduler()
-	sched.on(yesterday.strftime("%Y-%m-%d")).at("23:59").do(job, x="one", y="time")
-	sched.on(tomorrow.strftime("%Y-%m-%d")).at("23:59").do(job, x="one", y="time")
-	for j in sched.jobs:
-		assert (j.next_timestamp==dt.timestamp(tomorrow) or j.next_timestamp==0)
-	assert len(sched.jobs) == 2
+	dead_job = sched.on(yesterday.strftime("%Y-%m-%d")).at("23:59").do(job, x="one", y="time")
+	assert(dead_job.next_timestamp == 0)
+	alive_job = sched.on(tomorrow.strftime("%Y-%m-%d")).at("23:59").do(job, x="one", y="time")
+	assert (alive_job.next_timestamp==dt.timestamp(tomorrow))
+	assert(len(sched.jobs) == 2)
 	sched.check()
-	assert len(sched.jobs) == 1
+	assert(len(sched.jobs) == 1)
 
 
 def test_never():
@@ -122,11 +125,13 @@ def test_never():
 	sched.on('never').do(job, x="never", y="never")
 	for j in sched.jobs:
 		assert (j.next_timestamp==0)
-	assert len(sched.jobs) == 2
+	assert(len(sched.jobs) == 2)
 	sched.check()
-	assert len(sched.jobs) == 2
-	sched.jobs[0].run()
-	assert len(sched.jobs) == 2
+	assert(len(sched.jobs) == 2)
+	sched.jobs[0].run() # run the job directly
+	sched.rerun(1) # rerun -> runs as a thread
+	time.sleep(0.1)
+	assert(len(sched.jobs) == 2)
 	for j in sched.jobs: # assert again that they were not rescheduled after running
 		assert (j.next_timestamp==0)
 
@@ -185,7 +190,7 @@ def test_monthly():
 		# error because .strict_date() is not called
 		s.every("1st").at("23:59").do(job, x="hello", y="world")
 
-	assert len(s.jobs) == 4
+	assert (len(s.jobs) == 4)
 
 
 def test_repeat():
@@ -396,13 +401,13 @@ def test_job_rerun():
 	in2sec_str = now.strftime("%H:%M")
 	s = TaskScheduler()
 	s.every(today_str).at(in2sec_str).do(job, x="hello", y=today_str)
-	assert len(s.jobs) == 1
+	assert(len(s.jobs) == 1)
 	time.sleep(0.5)
 	s.check() # will run here, and reschedule to next week
 	run_end = s.jobs[0].to_dict()['logs']['end']
 	# test if next run greater than 6 days from now
 	test_timestamp = time.time()
-	assert s.jobs[0].next_timestamp > test_timestamp+(6*24*60*60)
+	assert(s.jobs[0].next_timestamp > test_timestamp+(6*24*60*60))
 	time.sleep(1)
 
 	# rerun the job
@@ -410,6 +415,38 @@ def test_job_rerun():
 	s.rerun(0)
 	time.sleep(1)
 	rerun_end = s.jobs[0].to_dict()['logs']['end']
-	assert run_end != rerun_end
+	assert(run_end != rerun_end)
 	# rerun should not reschedule the job
-	assert s.jobs[0].next_timestamp == prev_resched_timestamp
+	assert(s.jobs[0].next_timestamp == prev_resched_timestamp)
+
+
+@pytest.mark.filterwarnings("ignore:I/O error")
+def test_timezones():
+	tomorrow = dt.now() + timedelta(days=1)
+	tomorrow_str = tomorrow.strftime("%A").lower() # day of the week
+	in2sec_str = tomorrow.strftime("%H:%M")
+
+	s = TaskScheduler()
+	with pytest.raises(BadScheduleError):
+		s.every(tomorrow_str).at("8:00").timezone("US/US").do(job, x="hello", y=today_str) # bad timezone
+
+	euro = s.every(tomorrow_str).at(in2sec_str).timezone("Europe/London").do(job, x="hello", y=tomorrow.strftime("%A"))
+	assert(len(s.jobs) == 1)
+	local = s.every(tomorrow_str).at(in2sec_str).timezone("America/New_York").do(job, x="hello", y=tomorrow.strftime("%A"))
+	assert((euro.next_timestamp - local.next_timestamp)/60/60 in (-4, -5))
+
+	# test if next run greater than 6 days from now
+	# 'now' is in NY time and schedule is in London. So it will automatically be rescheduled to next run
+	now = dt.now(tz.gettz("America/New_York"))
+	today_str = now.strftime("%A").lower() # day of the week
+	s.every(today_str).at(in2sec_str).timezone("Europe/London").do(job, x="hello", y=today_str)
+	test_timestamp = time.time()
+	assert(s.jobs[-1].next_timestamp > test_timestamp+(6*24*60*60))
+	time.sleep(1)
+
+	est = s.on(dt(now.year+1, 12, 1).strftime("%Y-%m-%d")).at("8:00").do(job, x="hello", y=today_str)
+	# gmt = s.on(dt(now.year+1, 12, 1).strftime("%Y-%m-%d")).at("8:00").timezone("Europe/London").do(job, x="hello", y=today_str)
+	assert(est.to_datetime(est.next_timestamp).strftime('%Z')=="EST")
+
+	edt = s.on(dt(now.year+1, 6, 1).strftime("%Y-%m-%d")).at("8:00").do(job, x="hello", y=today_str)
+	assert(edt.to_datetime(edt.next_timestamp).strftime('%Z')=="EDT")

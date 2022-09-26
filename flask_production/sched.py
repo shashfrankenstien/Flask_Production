@@ -1,8 +1,9 @@
+from typing import Union, Callable
 import time
 from datetime import datetime as dt
 from logging.handlers import RotatingFileHandler
 import holidays
-
+from dateutil import tz
 
 from .print_logger import (
 	LOGGER,
@@ -44,15 +45,20 @@ class TaskScheduler(object):
 	"""
 
 	def __init__(self,
-		check_interval=5,
-		holidays_calendar=None,
-		on_job_error=None,
-		log_filepath=None,
-		log_maxsize=5*1024*1024,
-		log_backups=1):
+		check_interval: int=5,
+		holidays_calendar: Union[holidays.HolidayBase, None]=None,
+		tzname: Union[str, None]=None,
+		on_job_error: Union[Callable, None]=None,
+		log_filepath: Union[str, None]=None,
+		log_maxsize: int=5*1024*1024,
+		log_backups: int=1) -> None:
 
 		self.jobs = []
 		self._check_interval = check_interval
+		tztest = tz.gettz(tzname)
+		if tztest is None:
+			raise ValueError(f"unknown timezone '{tzname}'")
+		self._tz_default = tzname
 		if holidays_calendar is not None:
 			self.holidays_calendar = holidays_calendar
 		else:
@@ -72,11 +78,9 @@ class TaskScheduler(object):
 	def __reset_defaults(self):
 		self.interval = None
 		self.temp_time = None
+		self.tzname = self._tz_default # timezone default
 		self._strict_monthly = None
 		self.job_calendar = None
-
-	def __current_timestring(self):
-		return dt.now().strftime("%H:%M")
 
 	def every(self, interval, calendar=None):
 		'''
@@ -88,6 +92,7 @@ class TaskScheduler(object):
 		return self
 
 	def on(self, *args, **kwargs):
+		'''alias of .every() method'''
 		return self.every(*args, **kwargs)
 
 	def strict_date(self, strict):
@@ -109,6 +114,22 @@ class TaskScheduler(object):
 		self.temp_time = time_string
 		return self
 
+	def timezone(self, tzname):
+		'''
+		timezone string as defined in pytz module
+		example US/Eastern
+		defaults to system timezone
+		'''
+		test = tz.gettz(tzname)
+		if test is None:
+			raise BadScheduleError(f"unknown timezone '{tzname}'")
+		self.tzname = tzname
+		return self
+
+	def tz(self, *args, **kwargs):
+		'''alias of .timezone() method'''
+		return self.timezone(*args, **kwargs)
+
 	def do(self, func, do_parallel=False, **kwargs):
 		'''
 		register 'func' for the job
@@ -118,7 +139,7 @@ class TaskScheduler(object):
 		if self.interval is None:
 			raise Exception('Use .at()/.every().at() before .do()')
 		if self.temp_time is None:
-			self.temp_time = self.__current_timestring()
+			self.temp_time = dt.now(tz.gettz(self._tz_default)).strftime("%H:%M") # FIXME: default timezone is fine?? Or not I guess
 
 		new_jobid = len(self.jobs)
 		if RepeatJob.is_valid_interval(self.interval):
@@ -136,6 +157,7 @@ class TaskScheduler(object):
 
 		j.init(
 			calendar=self.holidays_calendar if self.job_calendar is None else self.job_calendar,
+			tzname=self.tzname,
 			generic_err_handler=self.on_job_error
 		)
 		if do_parallel:

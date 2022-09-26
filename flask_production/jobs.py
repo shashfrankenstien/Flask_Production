@@ -1,6 +1,7 @@
 import time
 from datetime import timedelta, datetime as dt
 from monthdelta import monthdelta
+from dateutil import tz
 import re
 import threading
 import inspect
@@ -88,12 +89,13 @@ class Job(object):
 		self._err_handler = None
 		self._func_src_code = inspect.getsource(self.func)
 
-	def init(self, calendar, generic_err_handler=None, startup_offset_mins=0):
+	def init(self, calendar, tzname=None, generic_err_handler=None, startup_offset_mins=0):
 		'''initialize extra attributes of job'''
 		self.calendar = calendar
+		self.tzname = tzname
 		self._generic_err_handler = generic_err_handler
 		self._startup_offset_mins = startup_offset_mins # look back on tasks if task scheduler just started
-		self._run_info = print_logger._PrintLogger()
+		self._run_info = print_logger._PrintLogger(tzname=tzname)
 		self.schedule_next_run()
 		print(self)
 		return self
@@ -107,9 +109,20 @@ class Job(object):
 		self._err_handler = err_handler
 		return self
 
-	@staticmethod
-	def to_timestamp(d):
-		return time.mktime(d.timetuple())+d.microsecond/1000000.0
+	# important datetime and timezone management methods
+	def to_timestamp(self, d: dt):
+		return d.timestamp()
+
+	def to_datetime(self, t: float):
+		return dt.fromtimestamp(t, tz=tz.gettz(self.tzname))
+
+	def tz_now(self):
+		return dt.now(tz=tz.gettz(self.tzname))
+
+	def tz_dt(self, year, month, day, hour=0, minute=0, second=0, microsecond=0):
+		d = dt(int(year), int(month), int(day), int(hour), int(minute), int(second), int(microsecond), tzinfo=tz.gettz(self.tzname))
+		return tz.resolve_imaginary(d) # handles time that falls in the transition to/from daylight savings
+	#
 
 	def attach_upcoming_run_time(self, d: dt, just_ran: bool=False):
 		'''
@@ -123,7 +136,7 @@ class Job(object):
 			if not isinstance(at, str):
 				raise BadScheduleError(f"Invalid time string '{self.time_string}'")
 			h, m = at.split(':')
-			dt_list.append(dt(d.year, d.month, d.day, int(h), int(m), 0))
+			dt_list.append(self.tz_dt(d.year, d.month, d.day, int(h), int(m)))
 
 		if isinstance(self.time_string, (list,set,tuple)):
 			for at in self.time_string:
@@ -131,7 +144,7 @@ class Job(object):
 		else:
 			_add_dt(self.time_string)
 		# to find an upcoming time, we need to filter dt_list based on current date and time
-		now = dt.now().replace(second=0, microsecond=0)
+		now = self.tz_now().replace(second=0, microsecond=0)
 		if just_ran:
 			upcoming_list = [n for n in dt_list if n > now]
 		else:
@@ -143,7 +156,7 @@ class Job(object):
 
 	def schedule_next_run(self, just_ran=False):
 		'''compute timestamp of the next run'''
-		d = dt.now()
+		d = self.tz_now()
 		upcoming = self.attach_upcoming_run_time(d, just_ran=just_ran)
 		if not self._job_must_run_today() or upcoming is None:
 			next_day = d + timedelta(days=1)
@@ -154,7 +167,7 @@ class Job(object):
 		self.next_timestamp = self.to_timestamp(upcoming)
 
 	def _job_must_run_today(self, date=None):
-		return RUNABLE_DAYS[self.interval](date or dt.now(), self.calendar)
+		return RUNABLE_DAYS[self.interval](date or self.tz_now(), self.calendar)
 
 	def is_due(self):
 		'''test if job should run now'''
@@ -193,7 +206,7 @@ class Job(object):
 					print("========== [{:03}] - Job {} [{}] =========".format(
 						self.jobid,
 						"Rerun Start" if is_rerun else "Start",
-						dt.now().strftime("%Y-%m-%d %H:%M:%S")
+						self.tz_now().strftime("%Y-%m-%d %H:%M:%S %Z")
 					))
 					print("Executing {}".format(self))
 					print("*") # job log seperator
@@ -221,12 +234,12 @@ class Job(object):
 					print("========== [{:03}] - Job {} [{}] =========".format(
 						self.jobid,
 						"Rerun End" if is_rerun else "End",
-						dt.now().strftime("%Y-%m-%d %H:%M:%S")
+						self.tz_now().strftime("%Y-%m-%d %H:%M:%S %Z")
 					))
 				self.is_running = False
 
 	def _next_run_dt(self):
-		return dt.fromtimestamp(self.next_timestamp) if self.next_timestamp!=0 else None
+		return self.to_datetime(self.next_timestamp) if self.next_timestamp!=0 else None
 
 	def to_dict(self):
 		'''property to access job info dict'''
@@ -239,6 +252,7 @@ class Job(object):
 			type=self.__class__.__name__,
 			every=self.interval,
 			at=self.time_string,
+			tzname=self.tzname,
 			is_running=self.is_running,
 			next_run=self._next_run_dt(),
 			logs=self._run_info.to_dict() if hasattr(self, '_run_info') else {}
@@ -249,7 +263,7 @@ class Job(object):
 		return "{:10} [{:03}] | Next run = {} | {}".format(
 			self.__class__.__name__,
 			self.jobid,
-			d.strftime("%Y-%m-%d %H:%M:%S") if isinstance(d, dt) else 'Never',
+			d.strftime("%Y-%m-%d %H:%M:%S %Z") if isinstance(d, dt) else 'Never',
 			self.func_signature()
 		)
 
@@ -267,7 +281,7 @@ class OneTimeJob(Job):
 
 	def schedule_next_run(self, just_ran=False):
 		Y, m, d = self.interval.split('-')
-		n = dt(int(Y), int(m), int(d))
+		n = self.tz_dt(int(Y), int(m), int(d))
 		upcoming = self.attach_upcoming_run_time(n, just_ran=just_ran)
 
 		if upcoming is None:
@@ -327,7 +341,7 @@ class MonthlyJob(Job):
 
 	def schedule_next_run(self, just_ran=False):
 		interval = int(self.PATTERN.match(self.interval).groups()[0])
-		sched_day = dt.now()
+		sched_day = self.tz_now()
 		upcoming = self.attach_upcoming_run_time(sched_day, just_ran=just_ran)
 		# switch to next month if
 		# - task just ran, or

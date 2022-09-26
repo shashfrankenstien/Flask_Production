@@ -1,4 +1,5 @@
 from datetime import datetime as dt
+from dateutil import tz
 from collections import OrderedDict
 from flask import request
 import json
@@ -19,6 +20,8 @@ STYLES = '''
 		display:flex;
 		flex-direction:column;
 		align-items:center;
+		font-family: sans-serif;
+		font-size: 14px;
 	}
 	*::-webkit-scrollbar {
 		width: 14px !important;
@@ -195,7 +198,8 @@ STYLES = '''
 class TaskMonitor(object):
 
 	def __init__(self, app, sched, display_name=None, endpoint="@taskmonitor", homepage_refresh=30, taskpage_refresh=5):
-		self._init_dt = dt.now().strftime("%m/%d/%Y %I:%M %p") # preformatted start time
+		self.tzname = sched._tz_default
+		self._init_dt = dt.now(tz.gettz(self.tzname)).strftime("%m/%d/%Y %I:%M %p %Z") # preformatted start time
 		self.app = app
 		self.sched = sched
 		self._endpoint = endpoint
@@ -240,19 +244,29 @@ class TaskMonitor(object):
 				duration = "{} seconds".format(seconds)
 		return duration
 
+	def __timestr_to_12hr(self, tstr):
+		d = dt.strptime(dt.now().strftime("%Y-%m-%d "+ str(tstr)), "%Y-%m-%d %H:%M")
+		return d.strftime("%I:%M%p")
+
 	def __schedule_str(self, jdict):
 		if isinstance(jdict['every'], int): # jdict['type']=='RepeatJob'
-			return "every {} seconds".format(jdict['every'])
+			out = "every {} seconds".format(jdict['every'])
 		elif jdict['type']=='OneTimeJob':
-			return "on {} at {}".format(jdict['every'], jdict['at'])
+			out = "on {} at {}".format(jdict['every'], jdict['at'])
 		elif jdict['type']=='NeverJob':
-			return "on-demand"
+			out = 'on-demand'
+		elif isinstance(jdict['at'], (list,set,tuple)):
+			out = "every {} at {}".format(jdict['every'], ', '.join(jdict['at']))
 		else:
-			return "every {} at {}".format(jdict['every'], jdict['at'])
+			out = "every {} at {}".format(jdict['every'], jdict['at'])
+
+		if isinstance(jdict['tzname'], str):
+			out += " " + dt.now(tz.gettz(jdict['tzname'])).strftime("[%Z]")
+		return out
 
 	def __date_fmt(self, d, fallback=None):
 		fallback = fallback or '-'+('&nbsp;'*30) # a hiphen and some html spaces
-		return d.strftime("%Y-%m-%d %H:%M:%S") if d is not None else fallback
+		return d.strftime("%Y-%m-%d %H:%M:%S %Z") if d is not None else fallback
 
 	def __date_sort_attr(self, d):
 		return {'data-sort': d.timestamp() if d is not None else 0}
@@ -395,7 +409,7 @@ class TaskMonitor(object):
 
 		info_table = TABLE(tbody=TBODY(rows), css='info_table')
 		description_div = DIV( CODE(jobd['src'], css='python'), css=['console-color ', 'console-div', 'brdr'])
-		title = H(2, job_funcname, attrs={'title': self.sched.jobs[n].func_signature()})
+		title = H(2, job_funcname, attrs={'title': j.func_signature()})
 		monitor_div = DIV(
 			title + info_table + description_div,
 			css="monitor"
@@ -452,13 +466,13 @@ class TaskMonitor(object):
 			if (running) {{
 				setTimeout(()=>location.reload(), {taskpage_refresh}000)
 			}} else if ( isNaN(next_run) ) {{ // if not number
-				document.getElementById("next-run-in").innerHTML = 'Never'
+				document.getElementById("next-run-in").innerHTML = next_run
 			}} else {{
 				const timer = setInterval(()=>{{
 					let ttr = next_run-Date.now()
 					if (ttr<=0) {{
 						clearInterval(timer)
-						location.reload()
+						setTimeout(()=>location.reload(), 1000) // small timeout to avoid too many reloads
 					}} else {{
 						document.getElementById("next-run-in").innerHTML = countdown_str(ttr/1000)
 					}}
