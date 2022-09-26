@@ -58,6 +58,7 @@ TaskScheduler
 
    TaskScheduler(check_interval=5,
       holidays_calendar=None,
+      tzname=None,
       on_job_error=None,
       log_filepath=None,
       log_maxsize=5*1024*1024, # 5 MB
@@ -72,6 +73,7 @@ Parameters:
 - **holidays_calendar** *(holidays.HolidayBase)*: calendar to use for intervals like ``businessday``
       - default US holidays
 
+- **tzname** *(str)*: name of timezone as supported by dateutil.tz
 - **on_job_error** *(func(e))*: function to call if any job fails
 - **log_filepath** *(path)*: file to write logs to
 - **log_maxsize** *(int)*: byte limit per log file
@@ -95,6 +97,7 @@ Parameters:
 
    # Run every weekday
    sched.every("weekday").at("08:00").do(lambda:bar())
+   sched.every("weekday").at("08:00").timezone("Europe/London").do(lambda:bar())
 
    # catch() will run on job error
    example_job = sched.every("weekday").at("09:00").do(lambda:failing()).catch(lambda e: print(e))
