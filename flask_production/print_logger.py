@@ -100,3 +100,11 @@ class _PrintLogger(object):
 				start=self._started_at,
 				end=self._ended_at,
 			)
+
+	def from_dict(self, info_dict):
+		if info_dict.get('start') is not None:
+			with self._lock:
+				self._run_log = info_dict['log']
+				self._err_log = info_dict['err']
+				self._started_at = info_dict['start']
+				self._ended_at = info_dict['end']

@@ -5,14 +5,11 @@ from dateutil import tz
 import re
 import threading
 import inspect
+import hashlib
 import traceback
 
 from . import print_logger
 
-
-
-class JobExpired(Exception):
-	pass
 
 
 class BadScheduleError(Exception):
@@ -81,6 +78,7 @@ class Job(object):
 		self.jobid = jobid
 		self.interval = every
 		self.time_string = at
+		self.tzname = None
 		self.func = func
 		self.kwargs = kwargs
 		self.is_running = False
@@ -88,25 +86,37 @@ class Job(object):
 		self._generic_err_handler = None
 		self._err_handler = None
 		self._func_src_code = inspect.getsource(self.func)
+		# signatures for setters and getters
+		self._func_signature = None
+		self._job_signature_hash = None
+		self._on_complete_cbs = []
 
-	def init(self, calendar, tzname=None, generic_err_handler=None, startup_offset_mins=0):
+	def init(self, calendar, tzname=None, generic_err_handler=None, startup_grace_mins=0):
 		'''initialize extra attributes of job'''
 		self.calendar = calendar
 		self.tzname = tzname
 		self._generic_err_handler = generic_err_handler
-		self._startup_offset_mins = startup_offset_mins # look back on tasks if task scheduler just started
+		self._startup_grace_mins = startup_grace_mins # look back on tasks if task scheduler just started
 		self._run_info = print_logger._PrintLogger(tzname=tzname)
 		self.schedule_next_run()
-		print(self)
 		return self
 
-	def silently(self):
-		self._run_silently = True
+	def silently(self, run_silently=True):
+		self._run_silently = run_silently
 		return self
 
 	def catch(self, err_handler):
 		'''register job specific error handler'''
 		self._err_handler = err_handler
+		return self
+
+	def register_callback(self, cb):
+		'''
+		register a callback function to be called when job completes
+		- this callback function should expect a job object as argument
+		'''
+		if callable(cb) and len(inspect.signature(cb).parameters)==1:
+			self._on_complete_cbs.append(cb)
 		return self
 
 	# important datetime and timezone management methods
@@ -148,7 +158,7 @@ class Job(object):
 		if just_ran:
 			upcoming_list = [n for n in dt_list if n > now]
 		else:
-			now -= timedelta(minutes=self._startup_offset_mins)
+			now -= timedelta(minutes=self._startup_grace_mins)
 			upcoming_list = [n for n in dt_list if n >= now]
 		if len(upcoming_list) == 0:
 			return None
@@ -178,68 +188,101 @@ class Job(object):
 		return self._run_info.error != ''
 
 	def func_signature(self):
-		def readable_trim(s):
-			if isinstance(s, list):
-				return "[..]"
-			elif isinstance(s, set):
-				return "(..)"
-			elif isinstance(s, dict):
-				return "{..}"
-			else:
-				s_str = str(s)[:6] + ".." if len(str(s))>6 else str(s)
-				return s_str.replace("<", "*").replace(">", "*") # escaping html
-		arguments = ''
-		if self.kwargs:
-			arguments = '({})'.format(','.join(['{}={}'.format(k, readable_trim(v)) for k,v in self.kwargs.items()]))
-		return '{}{}'.format(self.func.__name__, arguments)
+		'''create human readable function signature'''
+		if self._func_signature is None:
+			def readable_trim(s):
+				if isinstance(s, (list,tuple)):
+					return "[..]"
+				elif isinstance(s, set):
+					return "(..)"
+				elif isinstance(s, dict):
+					return "{..}"
+				else:
+					s_str = str(s)[:6] + ".." if len(str(s))>6 else str(s)
+					return s_str.replace("<", "*").replace(">", "*") # escaping html
+			arguments = '()'
+			if self.kwargs:
+				arguments = '({})'.format(','.join(['{}={}'.format(k, readable_trim(v)) for k,v in self.kwargs.items()]))
+			self._func_signature = '{}{}'.format(self.func.__name__, arguments)
+		return self._func_signature
 
-	def run(self, is_rerun=False):
+	def signature_hash(self):
+		'''create unique job signature hash'''
+		if self._job_signature_hash is None:
+			sig = "{}-{}-{}({})".format(
+				self.interval,
+				self.time_string,
+				self.func.__name__,
+				list(self.kwargs.values())
+			)
+			self._job_signature_hash = hashlib.sha1(sig.encode()).hexdigest()
+		return self._job_signature_hash
+
+	def _run(self, is_rerun: bool):
+		'''this is an internal runner. see self.run() for more'''
+		self.is_running = True
+		try:
+			if not self._run_silently: # add print statements
+				print("========== [{:03}] - Job {} [{}] =========".format(
+					self.jobid,
+					"Rerun Start" if is_rerun else "Start",
+					self.tz_now().strftime("%Y-%m-%d %H:%M:%S %Z")
+				))
+				print("Executing {}".format(self))
+				print("*") # job log seperator
+			start_time = time.time()
+			return self.func(**self.kwargs)
+		except Exception:
+			print("Job", self.func_signature(), "failed!")
+			err_msg = "Error in {}\n\n\n{}".format(self.func_signature(), traceback.format_exc())
+			self._run_info.set_error()
+			try:
+				if self._err_handler is not None:
+					self._err_handler(err_msg) # job specific error callback registered through .catch()
+				elif self._generic_err_handler is not None:
+					self._generic_err_handler(err_msg) # generic error callback from scheduler
+			except:
+				traceback.print_exc()
+		finally:
+			# if the job was forced to rerun, we should not schedule the next run
+			if not is_rerun:
+				self.schedule_next_run(just_ran=True)
+			if not self._run_silently: # add print statements
+				print("*") # job log seperator
+				print( "Finished in {:.2f} minutes".format((time.time()-start_time)/60))
+				print(self)
+				print("========== [{:03}] - Job {} [{}] =========".format(
+					self.jobid,
+					"Rerun End" if is_rerun else "End",
+					self.tz_now().strftime("%Y-%m-%d %H:%M:%S %Z")
+				))
+			self.is_running = False
+
+	def run(self, is_rerun: bool=False):
 		'''
 		begin job run
-		redirected all print statements to _PrintLogger
-		call error handlers if provided
+		- redirected all print statements to _PrintLogger
+		- call error handlers if provided
+		- execute registered callback functions
 		'''
 		with self._run_info.start_capture(): # captures all writes to stdout
-			self.is_running = True
+			self._run(is_rerun=is_rerun)
+		# call any registered on-complete callbacks
+		for cb in self._on_complete_cbs:
 			try:
-				if not self._run_silently: # add print statements
-					print("========== [{:03}] - Job {} [{}] =========".format(
-						self.jobid,
-						"Rerun Start" if is_rerun else "Start",
-						self.tz_now().strftime("%Y-%m-%d %H:%M:%S %Z")
-					))
-					print("Executing {}".format(self))
-					print("*") # job log seperator
-				start_time = time.time()
-				return self.func(**self.kwargs)
-			except Exception:
-				print("Job", self.func_signature(), "failed!")
-				err_msg = "Error in {}\n\n\n{}".format(self.func_signature(), traceback.format_exc())
-				self._run_info.set_error()
-				try:
-					if self._err_handler is not None:
-						self._err_handler(err_msg) # job specific error callback registered through .catch()
-					elif self._generic_err_handler is not None:
-						self._generic_err_handler(err_msg) # generic error callback from scheduler
-				except:
-					traceback.print_exc()
-			finally:
-				# if the job was forced to rerun, we should not schedule the next run
-				if not is_rerun:
-					self.schedule_next_run(just_ran=True)
-				if not self._run_silently: # add print statements
-					print("*") # job log seperator
-					print( "Finished in {:.2f} minutes".format((time.time()-start_time)/60))
-					print(self)
-					print("========== [{:03}] - Job {} [{}] =========".format(
-						self.jobid,
-						"Rerun End" if is_rerun else "End",
-						self.tz_now().strftime("%Y-%m-%d %H:%M:%S %Z")
-					))
-				self.is_running = False
+				cb(self)
+			except Exception as e:
+				print("on-complete-cb-error:", str(e))
 
 	def _next_run_dt(self):
 		return self.to_datetime(self.next_timestamp) if self.next_timestamp!=0 else None
+
+	def _logs_to_dict(self):
+		return self._run_info.to_dict() if hasattr(self, '_run_info') else {}
+
+	def _logs_from_dict(self, logs_dict):
+		if hasattr(self, '_run_info'):
+			self._run_info.from_dict(logs_dict)
 
 	def to_dict(self):
 		'''property to access job info dict'''
@@ -255,7 +298,7 @@ class Job(object):
 			tzname=self.tzname,
 			is_running=self.is_running,
 			next_run=self._next_run_dt(),
-			logs=self._run_info.to_dict() if hasattr(self, '_run_info') else {}
+			logs=self._logs_to_dict(),
 		)
 
 	def __repr__(self):
@@ -291,7 +334,7 @@ class OneTimeJob(Job):
 
 	def is_due(self):
 		if self.next_timestamp==0:
-			raise JobExpired('remove me!')
+			return False
 		return super().is_due()
 
 
@@ -380,6 +423,11 @@ class AsyncJobWrapper(object):
 	def __init__(self, job):
 		self.job = job
 		self.proc = None
+
+	def __repr__(self):
+		r = self.job.__repr__()
+		r = r.replace(self.job.__class__.__name__, self.job.__class__.__name__+"(*)") # (*) indicates asynchronous job
+		return r
 
 	def __getattr__(self, name):
 		return self.job.__getattribute__(name)

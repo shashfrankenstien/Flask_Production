@@ -16,7 +16,7 @@ def HTML(content, title):
 				href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/styles/monokai-sublime.min.css">
 			<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/highlight.min.js"></script>
 			<script src="https://cdn.jsdelivr.net/gh/TRSasasusu/highlightjs-highlight-lines.js@1.2.0/highlightjs-highlight-lines.min.js"></script>
-			<script src="https://cdn.jsdelivr.net/gh/shashfrankenstien/lib-tablefilterjs@v0.0.2/lib-tablefilter.min.js"></script>
+			<script src="https://cdn.jsdelivr.net/gh/shashfrankenstien/lib-tablefilterjs@v0.0.5/lib-tablefilter.min.js"></script>
 			<script>
 				hljs.configure({{languages: ['python', 'accesslog']}});
 				hljs.initHighlightingOnLoad();

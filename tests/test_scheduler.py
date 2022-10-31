@@ -1,4 +1,4 @@
-import os, glob
+import os, glob, shutil
 import time
 import threading
 import json
@@ -9,7 +9,7 @@ from dateutil import tz
 
 from flask_production import TaskScheduler
 from flask_production.hols import TradingHolidays
-from flask_production.sched import LOGGER, BadScheduleError
+from flask_production.sched import LOGGER, BadScheduleError, CUR_APP_DATA_DIR_PATH
 
 import pytest
 
@@ -31,6 +31,12 @@ def teardown_function(function):
 	for f in glob.glob(LOGGING_TEST_FILE+'*'):
 		if os.path.isfile(f):
 			os.remove(f)
+
+def teardown_module(module):
+	time.sleep(1)
+	if os.path.isdir(CUR_APP_DATA_DIR_PATH):
+		shutil.rmtree(CUR_APP_DATA_DIR_PATH)
+
 
 
 def test_registry():
@@ -119,8 +125,6 @@ def test_onetime():
 	alive_job = sched.on(tomorrow.strftime("%Y-%m-%d")).at("23:59").do(job, x="one", y="time")
 	assert (alive_job.next_timestamp==dt.timestamp(tomorrow))
 	assert(len(sched.jobs) == 2)
-	sched.check()
-	assert(len(sched.jobs) == 1)
 
 
 def test_never():
@@ -209,12 +213,12 @@ def test_repeat():
 
 
 def test_repeat_parallel():
-	d = time.time()
 	sleep_time = 1
 	s = TaskScheduler()
 	s.every(sleep_time).do(job, x="hello", y="world", do_parallel=True) # old style (pre v2.4.1)
 	s.every(sleep_time).do_parallel(job, x="hello", y="world") # new style (v2.4.1)
 	ts = s.jobs[0].next_timestamp
+	d = time.time()
 	assert (abs(ts - (d+sleep_time)) < 0.1)
 	time.sleep(sleep_time+0.5)
 	s.check()
@@ -443,3 +447,31 @@ def test_timezones():
 
 	edt = s.on(dt(now.year+1, 6, 1).strftime("%Y-%m-%d")).at("8:00").timezone("America/New_York").do(job, x="hello", y=today_str)
 	assert(edt.to_datetime(edt.next_timestamp).strftime('%Z')=="EDT")
+
+
+
+def test_persistent_logs():
+	s = TaskScheduler() # persist_states=True by default
+	j1 = s.every(1).do_parallel(job, x="hello", y="state1")
+	j2 = s.every(1).do(job, x="hello", y="state2") # make argument slightly different so that job signature is different
+	time.sleep(2)
+	s.check()
+
+	for j in [j1, j2]:
+		state_file = os.path.join(s.jobs_state_dir ,f"{j.signature_hash()}.pickle")
+		assert(os.path.isfile(state_file)==True)
+
+		import pickle
+		with open(state_file, 'rb') as f:
+			data = pickle.load(f)
+		assert(isinstance(data['start'], dt)==True)
+		assert(isinstance(data['end'], dt)==True)
+
+		assert(j._run_info._ended_at==data['end'])
+
+	s = TaskScheduler(persist_states=False)
+	j = s.every(1).do(job, x="hello", y="state")
+	time.sleep(1)
+	s.check()
+	assert(s.jobs_state_dir is None)
+	assert(isinstance(j._run_info._ended_at, dt)==True) # test if it ran even without s.jobs_state_dir

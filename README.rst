@@ -62,7 +62,9 @@ TaskScheduler
       on_job_error=None,
       log_filepath=None,
       log_maxsize=5*1024*1024, # 5 MB
-      log_backups=1)
+      log_backups=1,
+      startup_grace_mins=0, # minutes
+      persist_states=True)
 
 
 Parameters:
@@ -80,6 +82,10 @@ Parameters:
       - default 5 mb (only effective if log_filepath is provided)
 - **log_backups** *(int)*: number of backups of logs to retain
       - default 1 (only effective if log_filepath is provided)
+- **startup_grace_mins** *(int)*: grace period for tasks in case a schedule was missed because of app restart
+      - default 0
+- **persist_states** *(bool)*: store job logs on disk so that they can be read back on app restart
+      - default True (logs will be stored in a unique data directory)
 
 
 
