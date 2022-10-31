@@ -456,16 +456,17 @@ def test_persistent_logs():
 	j2 = s.every(1).do(job, x="hello", y="state2") # make argument slightly different so that job signature is different
 	time.sleep(2)
 	s.check()
+	time.sleep(1)
 
 	for j in [j1, j2]:
 		state_file = os.path.join(s.jobs_state_dir ,f"{j.signature_hash()}.pickle")
-		assert(os.path.isfile(state_file)==True)
+		assert(os.path.isfile(state_file))
 
 		import pickle
 		with open(state_file, 'rb') as f:
 			data = pickle.load(f)
-		assert(isinstance(data['start'], dt)==True)
-		assert(isinstance(data['end'], dt)==True)
+		assert(isinstance(data['start'], dt))
+		assert(isinstance(data['end'], dt))
 
 		assert(j._run_info._ended_at==data['end'])
 
@@ -474,4 +475,4 @@ def test_persistent_logs():
 	time.sleep(1)
 	s.check()
 	assert(s.jobs_state_dir is None)
-	assert(isinstance(j._run_info._ended_at, dt)==True) # test if it ran even without s.jobs_state_dir
+	assert(isinstance(j._run_info._ended_at, dt)) # test if it ran even without s.jobs_state_dir
