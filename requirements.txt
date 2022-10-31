@@ -5,4 +5,4 @@ MonthDelta
 psutil
 python_dateutil
 requests
-tzlocal
+tzlocal>=4.1
