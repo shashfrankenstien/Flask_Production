@@ -319,7 +319,8 @@ def test_log_rotation():
 		print("Slow job completed")
 
 	sleep_time = 1
-	s = TaskScheduler(log_filepath=LOGGING_TEST_FILE, log_maxsize=100)
+	log_size_limit = 200 # NOTE: this has to be longer than 1 line at least
+	s = TaskScheduler(log_filepath=LOGGING_TEST_FILE, log_maxsize=log_size_limit)
 	s.every(1).do_parallel(slow_job, sleep_time=sleep_time)
 	s.check()
 
@@ -334,11 +335,11 @@ def test_log_rotation():
 	# test log file
 	assert(os.path.isfile(LOGGING_TEST_FILE)==True)
 	with open(LOGGING_TEST_FILE, 'r') as lf:
-		assert(len(lf.read().encode('utf-8'))<=110) # FIXME: on github windows runner, this fails. so adding some padding
+		assert(len(lf.read().encode('utf-8'))<=log_size_limit)
 
 	assert(os.path.isfile(LOGGING_TEST_FILE+".1")==True)
 	with open(LOGGING_TEST_FILE+".1", 'r') as lf:
-		assert(len(lf.read().encode('utf-8'))<=110) # FIXME: on github windows runner, this fails. so adding some padding
+		assert(len(lf.read().encode('utf-8'))<=log_size_limit)
 
 
 
