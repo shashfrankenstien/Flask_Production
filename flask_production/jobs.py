@@ -203,7 +203,7 @@ class Job(object):
 			arguments = '()'
 			if self.kwargs:
 				arguments = '({})'.format(','.join(['{}={}'.format(k, readable_trim(v)) for k,v in self.kwargs.items()]))
-			self._func_signature = '{}{}'.format(self.func.__name__, arguments)
+			self._func_signature = '{}{}'.format(self.func.__qualname__, arguments)
 		return self._func_signature
 
 	def signature_hash(self):
@@ -212,7 +212,7 @@ class Job(object):
 			sig = "{}-{}-{}({})".format(
 				self.interval,
 				self.time_string,
-				self.func.__name__,
+				self.func.__qualname__,
 				list(self.kwargs.values())
 			)
 			self._job_signature_hash = hashlib.sha1(sig.encode()).hexdigest()
@@ -288,7 +288,7 @@ class Job(object):
 		'''property to access job info dict'''
 		return dict(
 			jobid=self.jobid,
-			func=self.func.__name__,
+			func=self.func.__qualname__,
 			signature=self.func_signature(),
 			src=self._func_src_code,
 			doc=self.func.__doc__,
