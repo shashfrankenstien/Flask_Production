@@ -200,10 +200,13 @@ class Job(object):
 				else:
 					s_str = str(s)[:6] + ".." if len(str(s))>6 else str(s)
 					return s_str.replace("<", "*").replace(">", "*") # escaping html
-			arguments = '()'
+			arguments = ''
 			if self.kwargs:
 				arguments = '({})'.format(','.join(['{}={}'.format(k, readable_trim(v)) for k,v in self.kwargs.items()]))
-			self._func_signature = '{}.{}{}'.format(self.func.__module__, self.func.__qualname__, arguments)
+			if self.func.__module__ == "__main__":
+				self._func_signature = '{}{}'.format(self.func.__qualname__, arguments)
+			else:
+				self._func_signature = '{}.{}{}'.format(self.func.__module__, self.func.__qualname__, arguments)
 		return self._func_signature
 
 	def signature_hash(self):
@@ -289,7 +292,7 @@ class Job(object):
 		'''property to access job info dict'''
 		return dict(
 			jobid=self.jobid,
-			func="{}.{}".format(self.func.__module__, self.func.__qualname__),
+			func=self.func.__qualname__,
 			signature=self.func_signature(),
 			src=self._func_src_code,
 			doc=self.func.__doc__,
