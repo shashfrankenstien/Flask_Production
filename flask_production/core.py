@@ -1,20 +1,20 @@
 from flask import request
 import cherrypy
-import time
 import traceback
 from datetime import datetime as dt
 
 
 class CherryFlask(object):
 
-	__slots__ = ['app', 'sched']
+	__slots__ = ['app', 'sched', 'timeout']
 
-	def __init__(self, app, scheduler=None, silent=False):
+	def __init__(self, app, scheduler=None, silent=False, timeout=60):
 		self.app = app
 		self.sched = scheduler
+		self.timeout = timeout
 		if not silent:
 			@app.after_request
-			def teardown(response): # pylint: disable=unused-variable
+			def _teardown(response): # pylint: disable=unused-variable
 				pth = request.environ.get('PATH_INFO')
 				if "@" not in pth: # disable logging of endpoints like @taskmonitor
 					adr = request.environ.get('HTTP_X_REAL_IP', request.environ.get('REMOTE_ADDR'))
@@ -32,6 +32,7 @@ class CherryFlask(object):
 		server.socket_host = host
 		server.socket_port = port
 		server.thread_pool = threads
+		server.socket_timeout = self.timeout
 		server.subscribe()
 
 		if hasattr(cherrypy.engine, "signal_handler"):

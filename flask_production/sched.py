@@ -63,9 +63,10 @@ CUR_APP_DATA_DIR_PATH = os.path.join(
 if not os.path.isdir(CUR_APP_DATA_DIR_PATH):
 	os.makedirs(CUR_APP_DATA_DIR_PATH)
 
-# create an app.info file that contains __cur_app_unique_info used to come up with the CUR_APP_DATA_DIR_NAME
-# - this will help while manually inspecting files in the data folder
-with open(os.path.join(CUR_APP_DATA_DIR_PATH, 'app.info'), 'w') as f:
+# create an *.info file that is named after the current working directory name
+# - helps to easily identify the app and manually inspect files in the data folder
+# - contains __cur_app_unique_info used to come up with the CUR_APP_DATA_DIR_NAME
+with open(os.path.join(CUR_APP_DATA_DIR_PATH, f'{os.path.basename(os.getcwd())}.cwd'), 'w') as f:
 	for info in __cur_app_unique_info:
 		f.write(str(info)+"\n")
 
@@ -254,13 +255,19 @@ class TaskScheduler(object):
 
 	def restore_all_job_logs(self):
 		if self.jobs_state_dir is not None:
+			found_states = []
 			for j in self.jobs.copy(): # work on a shallow copy of this list - safer in case the list changes. TODO: maybe use locks instead?
-				filename = j.signature_hash()
-				filepath = os.path.join(self.jobs_state_dir, f"{filename}.pickle")
+				filename = f"{j.signature_hash()}.pickle"
+				filepath = os.path.join(self.jobs_state_dir, filename)
 				if os.path.isfile(filepath):
 					with open(filepath, 'rb') as f:
 						logs = pickle.load(f)
 						j._logs_from_dict(logs)
+					found_states.append(filename)
+			# clean up other states that did not match current jobs list (possible stale)
+			for f in os.listdir(self.jobs_state_dir):
+				if f not in found_states:
+					os.remove(os.path.join(self.jobs_state_dir, f))
 
 	# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 	# -=-=-=-=-=-=-=-= Scheduler control methods =-=-=-=-=-=-=-=-=-=-=
