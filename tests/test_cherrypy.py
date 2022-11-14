@@ -10,7 +10,7 @@ from flask_production.sched import CUR_APP_DATA_DIR_PATH
 
 
 MONITOR_NAME = "Cherrypy Test"
-TEST_PORT = 55555
+TEST_PORT = 5555
 
 
 def task():
