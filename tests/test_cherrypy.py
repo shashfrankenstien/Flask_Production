@@ -5,9 +5,9 @@ import threading
 from flask import Flask
 import requests
 from flask_production import CherryFlask, TaskScheduler, TaskMonitor
-from flask_production.sched import CUR_APP_DATA_DIR_PATH
+from flask_production.state import FileSystemState
 
-
+CUR_APP_DATA_DIR_PATH = FileSystemState()._get_current_app_data_directory()
 
 MONITOR_NAME = "Cherrypy Test"
 TEST_PORT = 5555

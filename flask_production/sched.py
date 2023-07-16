@@ -28,52 +28,15 @@ from .jobs import (
 	BadScheduleError
 )
 
+from .state import (
+	BaseState,
+	FileSystemState,
+)
+
 
 
 USHolidays = holidays.US()
 
-# CUR_APP_DATA_DIR_NAME (current app signature)
-# =============================================
-# multiple apps / programs may use this library
-# CUR_APP_DATA_DIR_NAME is a way to create a unique folder for each app
-# it uses:
-# - current working directory: isolates apps in the same directory from other apps on the system
-# - path to python executabe: isolates apps using different python installations
-# - full command line:
-# 		- this includes name of the script file: isolates a script / entry point from others
-# 		- command line arguments: isolates when same script is run using different cli arguments
-__cur_app_unique_info = [
-	os.getcwd(),  		# current working directory
-	sys.executable,		# python executable
-	*sys.argv			# script name and cli arguments
-]
-CUR_APP_DATA_DIR_NAME = hashlib.sha1(':'.join(__cur_app_unique_info).encode()).hexdigest()
-
-# create the unique data directory for current app
-# this folder can contain
-# - info file that includes data used to come up with current app signature
-# - job state information
-CUR_APP_DATA_DIR_PATH = os.path.join(
-	os.environ.get('APPDATA') or
-	os.environ.get('XDG_DATA_HOME') or
-	os.path.join(os.environ['HOME'], '.local', 'share'),
-	"flask_production_data",
-	CUR_APP_DATA_DIR_NAME
-)
-if not os.path.isdir(CUR_APP_DATA_DIR_PATH):
-	os.makedirs(CUR_APP_DATA_DIR_PATH)
-
-# create an *.info file that is named after the current working directory name
-# - helps to easily identify the app and manually inspect files in the data folder
-# - contains __cur_app_unique_info used to come up with the CUR_APP_DATA_DIR_NAME
-with open(os.path.join(CUR_APP_DATA_DIR_PATH, f'{os.path.basename(os.getcwd())}.cwd'), 'w') as f:
-	for info in __cur_app_unique_info:
-		f.write(str(info)+"\n")
-
-# remove some temp variables created along the way
-del f
-del info
-del __cur_app_unique_info
 
 
 
@@ -130,11 +93,9 @@ class TaskScheduler(object):
 			LOGGER.addHandler(fh)
 
 		# setup state persistance over app restarts
-		self.jobs_state_dir = None
+		self._state_manager = None
 		if persist_states:
-			self.jobs_state_dir = os.path.join(CUR_APP_DATA_DIR_PATH, 'states')
-			if not os.path.isdir(self.jobs_state_dir):
-				os.makedirs(self.jobs_state_dir)
+			self._state_manager = FileSystemState()
 
 		# set schedule defaults
 		self.__reset_defaults()
@@ -232,9 +193,10 @@ class TaskScheduler(object):
 			startup_grace_mins=self._startup_grace_mins
 		)
 		# register callbacks to save job logs to file so it can be restored on app restart
-		j.register_callback(self.save_job_logs, cb_type="onenable")
-		j.register_callback(self.save_job_logs, cb_type="ondisable")
-		j.register_callback(self.save_job_logs, cb_type="oncomplete")
+		if isinstance(self._state_manager, BaseState):
+			j.register_callback(self._state_manager.save_job_logs, cb_type="onenable")
+			j.register_callback(self._state_manager.save_job_logs, cb_type="ondisable")
+			j.register_callback(self._state_manager.save_job_logs, cb_type="oncomplete")
 		if do_parallel:
 			j = AsyncJobWrapper(j)
 		print(j)
@@ -245,36 +207,6 @@ class TaskScheduler(object):
 	def do_parallel(self, func, **kwargs):
 		'''helper function to run job in a separate thread'''
 		return self.do(func, do_parallel=True, **kwargs)
-
-	# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-	# -=-=-=-=-=-=- Scheduler save/restore job logs =-=-=-=-=-=-=-=-
-	# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-
-	def save_job_logs(self, job_obj):
-		if self.jobs_state_dir is not None:
-			filename = job_obj.signature_hash()
-			with open(os.path.join(self.jobs_state_dir, f"{filename}.pickle"), 'wb') as f:
-				logs = job_obj._logs_to_dict()
-				pickle.dump({'logs':logs, 'disabled': job_obj.is_disabled}, f) # we only care about logs
-
-	def restore_all_job_logs(self):
-		if self.jobs_state_dir is not None:
-			found_states = []
-			for j in self.jobs.copy(): # work on a shallow copy of this list - safer in case the list changes. TODO: maybe use locks instead?
-				filename = f"{j.signature_hash()}.pickle"
-				filepath = os.path.join(self.jobs_state_dir, filename)
-				if os.path.isfile(filepath):
-					with open(filepath, 'rb') as f:
-						state = pickle.load(f)
-						logs = state['logs'] if 'logs' in state else state # doing it this way for backwards compatibility as 'state' was previously 'logs'
-						j._logs_from_dict(logs)
-						if state.get('disabled'):
-							j.disable()
-					found_states.append(filename)
-			# clean up other states that did not match current jobs list (possible stale)
-			for f in os.listdir(self.jobs_state_dir):
-				if f not in found_states:
-					os.remove(os.path.join(self.jobs_state_dir, f))
 
 	# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 	# -=-=-=-=-=-=-=-= Scheduler control methods =-=-=-=-=-=-=-=-=-=-=
@@ -289,7 +221,8 @@ class TaskScheduler(object):
 	def start(self):
 		'''blocking function that checks for jobs every 'check_interval' seconds'''
 		try:
-			self.restore_all_job_logs()
+			if isinstance(self._state_manager, BaseState):
+				self._state_manager.restore_all_job_logs(self.jobs)
 		except Exception as e:
 			print("unable to restore states:", str(e))
 		self._running_auto = True

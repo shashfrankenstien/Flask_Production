@@ -9,7 +9,10 @@ from dateutil import tz
 
 from flask_production import TaskScheduler
 from flask_production.hols import TradingHolidays
-from flask_production.sched import LOGGER, BadScheduleError, CUR_APP_DATA_DIR_PATH
+from flask_production.sched import LOGGER, BadScheduleError
+from flask_production.state import FileSystemState
+
+CUR_APP_DATA_DIR_PATH = FileSystemState()._get_current_app_data_directory()
 
 import pytest
 
@@ -459,8 +462,9 @@ def test_persistent_logs():
 	s.check()
 	time.sleep(1)
 
+	jobs_state_dir = s._state_manager._job_state_dir
 	for j in [j1, j2]:
-		state_file = os.path.join(s.jobs_state_dir ,f"{j.signature_hash()}.pickle")
+		state_file = os.path.join(jobs_state_dir ,f"{j.signature_hash()}.pickle")
 		assert(os.path.isfile(state_file))
 
 		import pickle
@@ -477,8 +481,8 @@ def test_persistent_logs():
 	j = s.every(1).do(job, x="hello", y="state")
 	time.sleep(1)
 	s.check()
-	assert(s.jobs_state_dir is None)
-	assert(isinstance(j._run_info._ended_at, dt)) # test if it ran even without s.jobs_state_dir
+	assert(s._state_manager is None)
+	assert(isinstance(j._run_info._ended_at, dt)) # test if it ran even without persist_states
 
 
 def test_job_disable():
