@@ -137,7 +137,7 @@ def test_never():
 	sched.check()
 	assert(len(sched.jobs) == 2)
 	sched.jobs[0].run() # run the job directly
-	sched.rerun(1) # rerun -> runs as a thread
+	sched.rerun(sched.jobs[1].jobid) # rerun -> runs as a thread
 	time.sleep(0.1)
 	assert(len(sched.jobs) == 2)
 	for j in sched.jobs: # assert again that they were not rescheduled after running
@@ -409,7 +409,7 @@ def test_job_rerun():
 
 	# rerun the job
 	prev_resched_timestamp = s.jobs[0].next_timestamp
-	s.rerun(0)
+	s.rerun(s.jobs[0].jobid)
 	time.sleep(1)
 	rerun_end = s.jobs[0].to_dict()['logs']['end']
 	assert(run_end != rerun_end)
@@ -465,9 +465,11 @@ def test_persistent_logs():
 
 		import pickle
 		with open(state_file, 'rb') as f:
-			data = pickle.load(f)
+			state = pickle.load(f)
+			data = state['logs']
 		assert(isinstance(data['start'], dt))
 		assert(isinstance(data['end'], dt))
+		assert(state['disabled']==False)
 
 		assert(j._run_info._ended_at==data['end'])
 
@@ -477,3 +479,45 @@ def test_persistent_logs():
 	s.check()
 	assert(s.jobs_state_dir is None)
 	assert(isinstance(j._run_info._ended_at, dt)) # test if it ran even without s.jobs_state_dir
+
+
+def test_job_disable():
+	s = TaskScheduler()
+	j = s.every(1).do(job, x="hello", y="state")
+	time.sleep(1)
+	s.check()
+	data = j.to_dict()
+	first_run_start = data['logs']['start']
+	assert(data['is_disabled']==False)
+	assert(first_run_start is not None) # runs fine
+
+	# test job level disable/enable
+	j.disable()
+	time.sleep(1)
+	s.check()
+	data = j.to_dict()
+	assert(data['is_disabled']==True)
+	assert(data['logs']['start'] == first_run_start) # did not run again as it was disabled
+
+	j.enable()
+	time.sleep(1)
+	s.check()
+	data = j.to_dict()
+	assert(data['is_disabled']==False)
+	assert(data['logs']['start'] > first_run_start) # ran again after enabling
+
+	# test scheduler level disable/enable
+	latest_run_start = data['logs']['start']
+	s.disable_all()
+	time.sleep(1)
+	s.check()
+	data = j.to_dict()
+	assert(data['is_disabled']==True)
+	assert(data['logs']['start'] == latest_run_start) # did not run again as it was disabled
+
+	s.enable_all()
+	time.sleep(1)
+	s.check()
+	data = j.to_dict()
+	assert(data['is_disabled']==False)
+	assert(data['logs']['start'] > latest_run_start) # ran again after enabling

@@ -37,7 +37,7 @@ STYLES = '''
 		height: 120px;
 		border: thin solid lightgrey;
 		border-radius: 5px;
-		box-shadow: 5px 5px 5px #888888;
+		box-shadow: 2px 2px 4px #888888;
 		display:flex;
 		flex-direction:column;
 		justify-content: center;
@@ -45,7 +45,7 @@ STYLES = '''
 		cursor:pointer;
 	}
 	.monitor-block:hover {
-		box-shadow: 2px 2px 4px #888888;
+		box-shadow: 5px 5px 5px #888888;
 	}
 	.error-border {
 		border: 2px solid #f53b3b;
@@ -138,6 +138,7 @@ class ControlPanel:
 
 	def _render_monitors(self):
 		content = []
+		tot_jobs = 0
 		for monitor in self._iter_monitors():
 			css = ['monitor-block']
 			attrs = {}
@@ -158,9 +159,11 @@ class ControlPanel:
 				attrs['data-url'] = monitor['url']
 				attrs['title'] = f"{mon['name']}\n{monitor['url']}"
 			content.append(DIV(elem, css=css, attrs=attrs))
+			tot_jobs += mon['summary']['count']
 		wrapper = DIV(''.join(content), css='wrapper')
 		header_txt = f"Control Panel"
 		header = DIV(H(2, header_txt), css=['header-bar'])
+		summary_txt = SMALL(f"Monitoring {tot_jobs} jobs")
 		rerun_txt = SMALL(f"Auto-refresh in {SPAN(self.page_refresh, attrs={'id': 'refresh-msg'})} seconds")
 
 		auto_reload = SCRIPT('''
@@ -185,6 +188,7 @@ class ControlPanel:
 		return HTML(''.join([
 			STYLES,
 			header,
+			summary_txt,
 			rerun_txt,
 			wrapper,
 			auto_reload

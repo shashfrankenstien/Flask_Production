@@ -82,9 +82,26 @@ def test_monitor_jobpage(client):
 
 def test_monitor_rerun_btn(client):
 	sched.every(30).do(another_task, do_parallel=True)
-	res = client.post("/{}/rerun".format(monitor._endpoint), json={'jobid':0})
+	res = client.post("/{}/rerun".format(monitor._endpoint), json={'jobid':0}) # missing api_token causes call to be blocked
 	assert(res.status_code==200)
+	assert("blocked" in res.data.decode(errors='ignore').lower())
+	time.sleep(1)
+	res = client.post("/{}/rerun".format(monitor._endpoint), json={'jobid':0, 'api_token': monitor._api_protection_token})
 	assert("success" in res.data.decode(errors='ignore').lower())
+
+
+def test_monitor_disable_btn(client):
+	sched.every(30).do(another_task, do_parallel=True)
+	payload = {'jobid':0, 'api_token': monitor._api_protection_token, 'disable': True}
+	res = client.post("/{}/enable_disable".format(monitor._endpoint), json=payload)
+	assert(res.status_code==200)
+	assert(sched.get_job_by_id(0).is_disabled==True)
+	time.sleep(1)
+	payload['disable'] = False
+	res = client.post("/{}/enable_disable".format(monitor._endpoint), json=payload)
+	assert("success" in res.data.decode(errors='ignore').lower())
+	assert(sched.get_job_by_id(0).is_disabled==False)
+
 
 
 def test_monitor_all_json(client):

@@ -154,7 +154,9 @@ TaskMonitor
       display_name=None,
       endpoint="@taskmonitor",
       homepage_refresh=30,
-      taskpage_refresh=5)
+      taskpage_refresh=5,
+      can_rerun=True,
+      can_disable=True)
 
 Parameters:
 
@@ -169,7 +171,10 @@ Parameters:
       - default 30
 - **taskpage_refresh** *(int)*: task page auto refresh interval (in seconds)
       - default 5
-
+- **can_rerun** *(bool)*: if True adds rerun button to job page
+      - default True
+- **can_disable** *(bool)*: if True adds disable button to job page
+      - default True
 
 
 .. code:: python

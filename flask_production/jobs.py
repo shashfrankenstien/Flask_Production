@@ -82,6 +82,7 @@ class Job(object):
 		self.func = func
 		self.kwargs = kwargs
 		self.is_running = False
+		self._is_disabled = False
 		self._run_silently = False
 		self._generic_err_handler = None
 		self._err_handler = None
@@ -90,6 +91,7 @@ class Job(object):
 		self._func_signature = None
 		self._job_signature_hash = None
 		self._on_complete_cbs = []
+		self._on_enable_disable_cbs = []
 
 	def init(self, calendar, tzname=None, generic_err_handler=None, startup_grace_mins=0):
 		'''initialize extra attributes of job'''
@@ -110,13 +112,45 @@ class Job(object):
 		self._err_handler = err_handler
 		return self
 
-	def register_callback(self, cb):
+	def register_callback(self, cb, cb_type="oncomplete"):
 		'''
 		register a callback function to be called when job completes
 		- this callback function should expect a job object as argument
 		'''
 		if callable(cb) and len(inspect.signature(cb).parameters)==1:
-			self._on_complete_cbs.append(cb)
+			if cb_type == 'oncomplete':
+				self._on_complete_cbs.append(cb)
+			elif cb_type == 'ondisable':
+				self._on_enable_disable_cbs.append(cb)
+			else:
+				raise ValueError("unsupported cb_type")
+		return self
+
+	@property
+	def is_disabled(self):
+		return self._is_disabled
+
+	@is_disabled.setter
+	def is_disabled(self, disable: bool):
+		if disable is True:
+			self._is_disabled = True
+			self.next_timestamp = 0 # remove next schedule
+		else:
+			self.schedule_next_run() # before enabling, we need to reschedule the job
+			self._is_disabled = False
+		# call any registered ondisable callbacks
+		for cb in self._on_enable_disable_cbs:
+			try:
+				cb(self)
+			except Exception as e:
+				print("on-disable-cb-error:", str(e))
+
+	def disable(self):
+		self.is_disabled = True # calls setter
+		return self
+
+	def enable(self):
+		self.is_disabled = False # calls setter
 		return self
 
 	# important datetime and timezone management methods
@@ -181,7 +215,7 @@ class Job(object):
 
 	def is_due(self):
 		'''test if job should run now'''
-		return (time.time() >= self.next_timestamp) and not self.is_running
+		return self.next_timestamp > 0 and (time.time() >= self.next_timestamp) and not self.is_running and not self.is_disabled
 
 	def did_fail(self):
 		'''test if job failed'''
@@ -301,6 +335,7 @@ class Job(object):
 			at=self.time_string,
 			tzname=self.tzname,
 			is_running=self.is_running,
+			is_disabled=self.is_disabled,
 			next_run=self._next_run_dt(),
 			logs=self._logs_to_dict(),
 		)

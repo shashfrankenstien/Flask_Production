@@ -203,7 +203,7 @@ class TaskScheduler(object):
 	def do(self, func, do_parallel=False, **kwargs):
 		'''
 		register 'func' for the job
-		- run in a prallel thread if do_parallel is True
+		- if do_parallel is True, run job in a prallel thread
 		- pass kwargs into 'func' at execution
 		'''
 		if self.interval is None:
@@ -231,7 +231,9 @@ class TaskScheduler(object):
 			generic_err_handler=self.on_job_error,
 			startup_grace_mins=self._startup_grace_mins
 		)
-		j.register_callback(self.save_job_logs) # this callback saves job logs to file so it can be restored on app restart
+		# register callbacks to save job logs to file so it can be restored on app restart
+		j.register_callback(self.save_job_logs, cb_type="oncomplete")
+		j.register_callback(self.save_job_logs, cb_type="ondisable")
 		if do_parallel:
 			j = AsyncJobWrapper(j)
 		print(j)
@@ -240,7 +242,7 @@ class TaskScheduler(object):
 		return j
 
 	def do_parallel(self, func, **kwargs):
-		'''helper function to run task in a separate thread'''
+		'''helper function to run job in a separate thread'''
 		return self.do(func, do_parallel=True, **kwargs)
 
 	# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -251,7 +253,8 @@ class TaskScheduler(object):
 		if self.jobs_state_dir is not None:
 			filename = job_obj.signature_hash()
 			with open(os.path.join(self.jobs_state_dir, f"{filename}.pickle"), 'wb') as f:
-				pickle.dump(job_obj._logs_to_dict(), f) # we only care about logs
+				logs = job_obj._logs_to_dict()
+				pickle.dump({'logs':logs, 'disabled': job_obj.is_disabled}, f) # we only care about logs
 
 	def restore_all_job_logs(self):
 		if self.jobs_state_dir is not None:
@@ -261,8 +264,11 @@ class TaskScheduler(object):
 				filepath = os.path.join(self.jobs_state_dir, filename)
 				if os.path.isfile(filepath):
 					with open(filepath, 'rb') as f:
-						logs = pickle.load(f)
+						state = pickle.load(f)
+						logs = state['logs'] if 'logs' in state else state # doing it this way for backwards compatibility as 'state' was previously 'logs'
 						j._logs_from_dict(logs)
+						if state.get('disabled'):
+							j.disable()
 					found_states.append(filename)
 			# clean up other states that did not match current jobs list (possible stale)
 			for f in os.listdir(self.jobs_state_dir):
@@ -302,7 +308,7 @@ class TaskScheduler(object):
 	def join(self):
 		'''wait for any async jobs to complete'''
 		for j in self.jobs:
-			if isinstance(j, AsyncJobWrapper) and j.is_running: # Kill any running parallel tasks
+			if isinstance(j, AsyncJobWrapper) and j.is_running: # wait for any running parallel tasks
 				j.proc.join()
 				print(j, "exited")
 
@@ -325,3 +331,11 @@ class TaskScheduler(object):
 		if not isinstance(selected_job, AsyncJobWrapper):
 			selected_job = AsyncJobWrapper(selected_job)
 		selected_job.run(is_rerun=True)
+
+	def disable_all(self):
+		for j in self.jobs:
+			j.disable()
+
+	def enable_all(self):
+		for j in self.jobs:
+			j.enable()
