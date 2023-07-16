@@ -232,8 +232,9 @@ class TaskScheduler(object):
 			startup_grace_mins=self._startup_grace_mins
 		)
 		# register callbacks to save job logs to file so it can be restored on app restart
-		j.register_callback(self.save_job_logs, cb_type="oncomplete")
+		j.register_callback(self.save_job_logs, cb_type="onenable")
 		j.register_callback(self.save_job_logs, cb_type="ondisable")
+		j.register_callback(self.save_job_logs, cb_type="oncomplete")
 		if do_parallel:
 			j = AsyncJobWrapper(j)
 		print(j)

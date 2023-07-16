@@ -91,7 +91,8 @@ class Job(object):
 		self._func_signature = None
 		self._job_signature_hash = None
 		self._on_complete_cbs = []
-		self._on_enable_disable_cbs = []
+		self._on_enable_cbs = []
+		self._on_disable_cbs = []
 
 	def init(self, calendar, tzname=None, generic_err_handler=None, startup_grace_mins=0):
 		'''initialize extra attributes of job'''
@@ -121,7 +122,9 @@ class Job(object):
 			if cb_type == 'oncomplete':
 				self._on_complete_cbs.append(cb)
 			elif cb_type == 'ondisable':
-				self._on_enable_disable_cbs.append(cb)
+				self._on_enable_cbs.append(cb)
+			elif cb_type == 'onenable':
+				self._on_disable_cbs.append(cb)
 			else:
 				raise ValueError("unsupported cb_type")
 		return self
@@ -135,15 +138,21 @@ class Job(object):
 		if disable is True:
 			self._is_disabled = True
 			self.next_timestamp = 0 # remove next schedule
+			# call any registered ondisable callbacks
+			for cb in self._on_disable_cbs:
+				try:
+					cb(self)
+				except Exception as e:
+					print("on-disable-cb-error:", str(e))
 		else:
 			self.schedule_next_run() # before enabling, we need to reschedule the job
 			self._is_disabled = False
-		# call any registered ondisable callbacks
-		for cb in self._on_enable_disable_cbs:
-			try:
-				cb(self)
-			except Exception as e:
-				print("on-disable-cb-error:", str(e))
+			# call any registered onenable callbacks
+			for cb in self._on_enable_cbs:
+				try:
+					cb(self)
+				except Exception as e:
+					print("on-enable-cb-error:", str(e))
 
 	def disable(self):
 		self.is_disabled = True # calls setter
