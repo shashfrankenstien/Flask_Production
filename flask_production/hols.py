@@ -11,7 +11,8 @@ class TradingHolidays(holidays.UnitedStates):
 		self.pop(date(year, 10, 1) + relativedelta(weekday=MO(+2)), None)
 		# Remove Veterans Day
 		self.pop(date(year, 11, 11), None)
-		self.pop(date(2023, 11, 11), None)
+		if year==2023:
+			self.pop(date(year, 11, 10), None)
 
 		# # Add Good Friday # NOTE: removed this since Good Friday is not a bond market holiday - [04/01/2021]
 		# self[easter(year) + relativedelta(weekday=FR(-1))] = "Good Friday"
