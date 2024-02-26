@@ -52,7 +52,8 @@ class TaskScheduler(object):
 	- log_maxsize (int): byte limit per log file
 	- log_backups (int): number of backups of logs to retain
 	- startup_grace_mins (int): grace period for tasks in case a schedule was missed because of app restart
-	- persist_states (bool): store job logs on disk so that they can be read back on app restart
+	- persist_states (bool): store job logs and read back on app restart
+	- state_handler (.state.BaseStateHandler): different handler backends to store job logs
 	"""
 
 	def __init__(self,

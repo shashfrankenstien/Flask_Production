@@ -6,3 +6,5 @@ psutil
 python_dateutil
 requests
 tzlocal>=4.1
+SQLAlchemy
+SQLAlchemy_Utils

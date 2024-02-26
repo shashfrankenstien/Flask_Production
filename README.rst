@@ -84,10 +84,13 @@ Parameters:
       - default 1 (only effective if log_filepath is provided)
 - **startup_grace_mins** *(int)*: grace period for tasks in case a schedule was missed because of app restart
       - default 0
-- **persist_states** *(bool)*: store job logs on disk so that they can be read back on app restart
-      - default True (logs will be stored in a unique data directory)
+- **persist_states** *(bool)*: store job logs and read back on app restart
+      - default True (logs will be stored)
+- **state_handler** *(.state.BaseStateHandler)*: different handler backends to store job logs
+      - default .state.FileSystemState (logs will be stored in a unique data directory)
 
 
+Standalone usage
 
 .. code:: python
 
