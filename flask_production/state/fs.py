@@ -1,12 +1,12 @@
 import os
 import pickle
 
-from .base import BaseState
+from .base import BaseStateHandler
 
 
 
 
-class FileSystemState(BaseState):
+class FileSystemState(BaseStateHandler):
 
 	def __init__(self, uri=None) -> None:
 		super().__init__()

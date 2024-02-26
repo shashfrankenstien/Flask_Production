@@ -29,7 +29,7 @@ from .jobs import (
 )
 
 from .state import (
-	BaseState,
+	BaseStateHandler,
 	FileSystemState,
 )
 
@@ -64,7 +64,8 @@ class TaskScheduler(object):
 		log_maxsize: int=5*1024*1024,
 		log_backups: int=1,
 		startup_grace_mins: int=0,
-		persist_states: bool=True) -> None:
+		persist_states: bool=True,
+		state_handler: Union[BaseStateHandler, None]=None) -> None:
 
 		self.jobs = []
 		self._check_interval = check_interval
@@ -93,9 +94,9 @@ class TaskScheduler(object):
 			LOGGER.addHandler(fh)
 
 		# setup state persistance over app restarts
-		self._state_manager = None
+		self._state_handler = None
 		if persist_states:
-			self._state_manager = FileSystemState()
+			self._state_handler = state_handler or FileSystemState()
 
 		# set schedule defaults
 		self.__reset_defaults()
@@ -193,10 +194,10 @@ class TaskScheduler(object):
 			startup_grace_mins=self._startup_grace_mins
 		)
 		# register callbacks to save job logs to file so it can be restored on app restart
-		if isinstance(self._state_manager, BaseState):
-			j.register_callback(self._state_manager.save_job_logs, cb_type="onenable")
-			j.register_callback(self._state_manager.save_job_logs, cb_type="ondisable")
-			j.register_callback(self._state_manager.save_job_logs, cb_type="oncomplete")
+		if isinstance(self._state_handler, BaseStateHandler):
+			j.register_callback(self._state_handler.save_job_logs, cb_type="onenable")
+			j.register_callback(self._state_handler.save_job_logs, cb_type="ondisable")
+			j.register_callback(self._state_handler.save_job_logs, cb_type="oncomplete")
 		if do_parallel:
 			j = AsyncJobWrapper(j)
 		print(j)
@@ -218,13 +219,18 @@ class TaskScheduler(object):
 			if j.is_due() and not j.is_running:
 				j.run()
 
-	def start(self):
-		'''blocking function that checks for jobs every 'check_interval' seconds'''
+
+	def restore_all_job_logs(self):
 		try:
-			if isinstance(self._state_manager, BaseState):
-				self._state_manager.restore_all_job_logs(self.jobs)
+			if isinstance(self._state_handler, BaseStateHandler):
+				self._state_handler.restore_all_job_logs(self.jobs)
 		except Exception as e:
 			print("unable to restore states:", str(e))
+
+
+	def start(self):
+		'''blocking function that checks for jobs every 'check_interval' seconds'''
+		self.restore_all_job_logs()
 		self._running_auto = True
 		try:
 			while self._running_auto:

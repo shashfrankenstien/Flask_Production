@@ -199,6 +199,12 @@ Parameters:
 here <https://gist.github.com/shashfrankenstien/5cfa8821d74c24fb0a01b979d434e5bb>`__
 
 
+TODO:
+~~~~~~~~~~~~~~
+
+| scheduler - function argument validation
+
+
 .. |Python 3.6| image:: https://img.shields.io/badge/python-3.6+-blue.svg
 .. |license| image:: https://img.shields.io/github/license/shashfrankenstien/flask_production
 .. |pytest| image:: https://github.com/shashfrankenstien/Flask_Production/workflows/pytest/badge.svg

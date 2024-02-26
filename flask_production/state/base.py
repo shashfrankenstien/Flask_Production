@@ -3,11 +3,11 @@ import sys
 import hashlib
 
 
-class BaseState:
+class BaseStateHandler:
 
 	def __init__(self) -> None:
 		# multiple apps / programs may use this library
-		# cur_app_data_dir_name is a way to create a unique folder for each app
+		# _cur_app_unique_info is a way to create a unique id for each app
 		# it uses:
 		# - current working directory: isolates apps in the same directory from other apps on the system
 		# - path to python executabe: isolates apps that use different python installations
@@ -17,7 +17,7 @@ class BaseState:
 		self._cur_app_unique_info = [
 			os.getcwd(),  		# current working directory
 			sys.executable,		# python executable
-			*sys.argv			# script name and cli arguments
+			*sys.argv			# script name and all cli arguments
 		]
 		self._cur_app_unique_info_hash = hashlib.sha1(':'.join(self._cur_app_unique_info).encode()).hexdigest()
 

@@ -591,9 +591,9 @@ class TaskMonitor(object):
 		data = json.loads(request.data)
 		print("> rerun", data)
 		if 'api_token' not in data or data['api_token']!=self._api_protection_token:
-			error = 'Rerun blocked'
+			error = 'Invalid token. Rerun blocked. Please reload the page and try again'
 
-		if 'jobid' not in data or not isinstance(data['jobid'], int):
+		elif 'jobid' not in data or not isinstance(data['jobid'], int):
 			error = 'Invalid input'
 		else:
 			try:

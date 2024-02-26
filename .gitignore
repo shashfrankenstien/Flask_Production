@@ -3,6 +3,7 @@ __pycache__
 *.pytest_cache
 *.log
 *.log.[1-9]
+*.db
 
 func_run.py
 consolidate.py

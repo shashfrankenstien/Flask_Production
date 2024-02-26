@@ -6,18 +6,19 @@ from datetime import datetime as dt, timedelta
 from monthdelta import monthdelta
 from dateutil.parser import parse as date_parse
 from dateutil import tz
+import pytest
 
 from flask_production import TaskScheduler
 from flask_production.hols import TradingHolidays
 from flask_production.sched import LOGGER, BadScheduleError
-from flask_production.state import FileSystemState
+from flask_production.state import FileSystemState, SQLAlchemyState
 
 CUR_APP_DATA_DIR_PATH = FileSystemState()._get_current_app_data_directory()
 
-import pytest
-
 
 LOGGING_TEST_FILE = 'testlog.log'
+DB_STATE_TEST_FILE = 'teststate.db'
+
 
 def job(x, y):
 	time.sleep(0.1)
@@ -25,6 +26,7 @@ def job(x, y):
 
 def pretty_print(d):
 	print(json.dumps(d, indent=4, default=str))
+
 
 def teardown_function(function):
 	for h in LOGGER.handlers:
@@ -34,6 +36,10 @@ def teardown_function(function):
 	for f in glob.glob(LOGGING_TEST_FILE+'*'):
 		if os.path.isfile(f):
 			os.remove(f)
+
+	if os.path.isfile(DB_STATE_TEST_FILE):
+		os.remove(DB_STATE_TEST_FILE)
+
 
 def teardown_module(module):
 	time.sleep(1)
@@ -420,70 +426,6 @@ def test_job_rerun():
 	assert(s.jobs[0].next_timestamp == prev_resched_timestamp)
 
 
-@pytest.mark.filterwarnings("ignore:I/O error")
-def test_timezones():
-	tomorrow = dt.now() + timedelta(days=1)
-	tomorrow_str = tomorrow.strftime("%A").lower() # day of the week
-	in2sec_str = tomorrow.strftime("%H:%M")
-
-	s = TaskScheduler()
-	with pytest.raises(BadScheduleError):
-		s.every(tomorrow_str).at("8:00").timezone("US/US").do(job, x="hello", y=today_str) # bad timezone
-
-	euro = s.every(tomorrow_str).at(in2sec_str).timezone("Europe/London").do(job, x="hello", y=tomorrow.strftime("%A"))
-	assert(len(s.jobs) == 1)
-	local = s.every(tomorrow_str).at(in2sec_str).timezone("America/New_York").do(job, x="hello", y=tomorrow.strftime("%A"))
-	assert((euro.next_timestamp - local.next_timestamp)/60/60 in (-4, -5))
-
-	# test if next run greater than 6 days from now
-	# 'now' is in NY time and schedule is in London. So it will automatically be rescheduled to next run
-	now = dt.now(tz.gettz("America/New_York"))
-	today_str = now.strftime("%A").lower() # day of the week
-	in2sec_str = now.strftime("%H:%M")
-	s.every(today_str).at(in2sec_str).timezone("Europe/London").do(job, x="hello", y=today_str)
-	test_timestamp = now.timestamp()
-	assert(s.jobs[-1].next_timestamp > test_timestamp+(6*24*60*60))
-	time.sleep(1)
-
-	est = s.on(dt(now.year+1, 12, 1).strftime("%Y-%m-%d")).at("8:00").timezone("America/New_York").do(job, x="hello", y=today_str)
-	# gmt = s.on(dt(now.year+1, 12, 1).strftime("%Y-%m-%d")).at("8:00").timezone("Europe/London").do(job, x="hello", y=today_str)
-	assert(est.to_datetime(est.next_timestamp).strftime('%Z')=="EST")
-
-	edt = s.on(dt(now.year+1, 6, 1).strftime("%Y-%m-%d")).at("8:00").timezone("America/New_York").do(job, x="hello", y=today_str)
-	assert(edt.to_datetime(edt.next_timestamp).strftime('%Z')=="EDT")
-
-
-
-def test_persistent_logs():
-	s = TaskScheduler() # persist_states=True by default
-	j1 = s.every(1).do_parallel(job, x="hello", y="state1")
-	j2 = s.every(1).do(job, x="hello", y="state2") # make argument slightly different so that job signature is different
-	time.sleep(2)
-	s.check()
-	time.sleep(1)
-
-	jobs_state_dir = s._state_manager._job_state_dir
-	for j in [j1, j2]:
-		state_file = os.path.join(jobs_state_dir ,f"{j.signature_hash()}.pickle")
-		assert(os.path.isfile(state_file))
-
-		import pickle
-		with open(state_file, 'rb') as f:
-			state = pickle.load(f)
-			data = state['logs']
-		assert(isinstance(data['start'], dt))
-		assert(isinstance(data['end'], dt))
-		assert(state['disabled']==False)
-
-		assert(j._run_info._ended_at==data['end'])
-
-	s = TaskScheduler(persist_states=False)
-	j = s.every(1).do(job, x="hello", y="state")
-	time.sleep(1)
-	s.check()
-	assert(s._state_manager is None)
-	assert(isinstance(j._run_info._ended_at, dt)) # test if it ran even without persist_states
-
 
 def test_job_disable():
 	s = TaskScheduler()
@@ -525,3 +467,108 @@ def test_job_disable():
 	data = j.to_dict()
 	assert(data['is_disabled']==False)
 	assert(data['logs']['start'] > latest_run_start) # ran again after enabling
+
+
+
+
+@pytest.mark.filterwarnings("ignore:I/O error")
+def test_timezones():
+	tomorrow = dt.now() + timedelta(days=1)
+	tomorrow_str = tomorrow.strftime("%A").lower() # day of the week
+	in2sec_str = tomorrow.strftime("%H:%M")
+
+	s = TaskScheduler()
+	with pytest.raises(BadScheduleError):
+		s.every(tomorrow_str).at("8:00").timezone("US/US").do(job, x="hello", y=today_str) # bad timezone
+
+	euro = s.every(tomorrow_str).at(in2sec_str).timezone("Europe/London").do(job, x="hello", y=tomorrow.strftime("%A"))
+	assert(len(s.jobs) == 1)
+	local = s.every(tomorrow_str).at(in2sec_str).timezone("America/New_York").do(job, x="hello", y=tomorrow.strftime("%A"))
+	assert((euro.next_timestamp - local.next_timestamp)/60/60 in (-4, -5))
+
+	# test if next run greater than 6 days from now
+	# 'now' is in NY time and schedule is in London. So it will automatically be rescheduled to next run
+	now = dt.now(tz.gettz("America/New_York"))
+	today_str = now.strftime("%A").lower() # day of the week
+	in2sec_str = now.strftime("%H:%M")
+	s.every(today_str).at(in2sec_str).timezone("Europe/London").do(job, x="hello", y=today_str)
+	test_timestamp = now.timestamp()
+	assert(s.jobs[-1].next_timestamp > test_timestamp+(6*24*60*60))
+	time.sleep(1)
+
+	est = s.on(dt(now.year+1, 12, 1).strftime("%Y-%m-%d")).at("8:00").timezone("America/New_York").do(job, x="hello", y=today_str)
+	# gmt = s.on(dt(now.year+1, 12, 1).strftime("%Y-%m-%d")).at("8:00").timezone("Europe/London").do(job, x="hello", y=today_str)
+	assert(est.to_datetime(est.next_timestamp).strftime('%Z')=="EST")
+
+	edt = s.on(dt(now.year+1, 6, 1).strftime("%Y-%m-%d")).at("8:00").timezone("America/New_York").do(job, x="hello", y=today_str)
+	assert(edt.to_datetime(edt.next_timestamp).strftime('%Z')=="EDT")
+
+
+
+def test_fs_persistent_logs():
+	s = TaskScheduler() # persist_states=True by default
+	j1 = s.every(1).do_parallel(job, x="hello", y="state1")
+	j2 = s.every(1).do(job, x="hello", y="state2") # make argument slightly different so that job signature is different
+	time.sleep(2)
+	s.check()
+	time.sleep(1)
+
+	jobs_state_dir = s._state_handler._job_state_dir
+	for j in [j1, j2]:
+		state_file = os.path.join(jobs_state_dir ,f"{j.signature_hash()}.pickle")
+		assert(os.path.isfile(state_file))
+
+		import pickle
+		with open(state_file, 'rb') as f:
+			state = pickle.load(f)
+			data = state['logs']
+		assert(isinstance(data['start'], dt))
+		assert(isinstance(data['end'], dt))
+		assert(state['disabled']==False)
+
+		assert(j._run_info._ended_at==data['end'])
+
+	s = TaskScheduler(persist_states=False)
+	j = s.every(1).do(job, x="hello", y="state")
+	time.sleep(1)
+	s.check()
+	assert(s._state_handler is None)
+	assert(isinstance(j._run_info._ended_at, dt)) # test if it ran even without persist_states
+
+
+
+
+def test_sqlite_persistent_logs():
+	state = SQLAlchemyState(f"sqlite:///{DB_STATE_TEST_FILE}")
+	assert(not os.path.isfile(DB_STATE_TEST_FILE)) # file should not be created until first use
+
+	s = TaskScheduler(state_handler=state) # persist_states=True by default
+	assert(s._state_handler is not None)
+
+	j = s.every(1).do(job, x="hello", y="state")
+	s.every(1).do_parallel(job, x="hello", y="state2") # make argument slightly different so that job signature is different
+	time.sleep(2)
+
+	assert(j._run_info._ended_at is None)
+	assert(not os.path.isfile(DB_STATE_TEST_FILE)) # file should not be created until first use
+
+	s.check()
+	time.sleep(1)
+
+	assert(os.path.isfile(DB_STATE_TEST_FILE)) # file saved at the s.check() call
+	assert(j._run_info._ended_at is not None)
+	assert(isinstance(j._run_info._ended_at, dt)) # test if state was restored
+
+
+	# restore saved states
+	s = TaskScheduler(state_handler=state)
+	j = s.every(1).do(job, x="hello", y="state")
+
+	s.restore_all_job_logs() # need to manually call restore method - will be automatically called if s.start() is used
+
+	assert(j._run_info._ended_at is not None)
+	assert(isinstance(j._run_info._ended_at, dt))
+
+	time.sleep(1)
+	s.check()
+	assert(isinstance(j._run_info._ended_at, dt))
