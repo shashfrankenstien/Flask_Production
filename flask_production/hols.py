@@ -1,9 +1,10 @@
 import holidays
 from datetime import date
 from dateutil.relativedelta import relativedelta, MO, FR
-from dateutil.easter import easter
+# from dateutil.easter import easter
 
-class TradingHolidays(holidays.UnitedStates):
+
+class TradingHolidays(holidays.countries.UnitedStates):
 	def _populate(self, year):
 		# Populate the holiday list with the default US holidays
 		holidays.UnitedStates._populate(self, year)
