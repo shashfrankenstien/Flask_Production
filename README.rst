@@ -3,7 +3,7 @@ flask-production
 
 Cherrypy prod server for Flask + parallel task scheduler
 
-|Python 3.6| |license| |pytest|
+|Python 3.7| |license| |pytest|
 
 Installation
 ---------------------
@@ -209,6 +209,6 @@ TODO:
 | scheduler - function argument validation
 
 
-.. |Python 3.6| image:: https://img.shields.io/badge/python-3.6+-blue.svg
+.. |Python 3.7| image:: https://img.shields.io/badge/python-3.7+-blue.svg
 .. |license| image:: https://img.shields.io/github/license/shashfrankenstien/flask_production
 .. |pytest| image:: https://github.com/shashfrankenstien/Flask_Production/workflows/pytest/badge.svg

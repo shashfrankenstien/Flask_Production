@@ -538,13 +538,17 @@ def test_fs_persistent_logs():
 	assert(isinstance(j._run_info._ended_at, dt)) # test if it ran even without persist_states
 
 
-
-
-def test_sqlite_persistent_logs():
+@pytest.fixture
+def sqlalchemy_state():
 	state = SQLAlchemyState(f"sqlite:///{DB_STATE_TEST_FILE}")
+	yield state
+	state._engine.dispose()
+
+
+def test_sqlite_persistent_logs(sqlalchemy_state):
 	assert(not os.path.isfile(DB_STATE_TEST_FILE)) # file should not be created until first use
 
-	s = TaskScheduler(state_handler=state) # persist_states=True by default
+	s = TaskScheduler(state_handler=sqlalchemy_state) # persist_states=True by default
 	assert(s._state_handler is not None)
 
 	j = s.every(1).do(job, x="hello", y="state")
@@ -563,7 +567,7 @@ def test_sqlite_persistent_logs():
 
 
 	# restore saved states
-	s = TaskScheduler(state_handler=state)
+	s = TaskScheduler(state_handler=sqlalchemy_state)
 	j = s.every(1).do(job, x="hello", y="state")
 
 	s.restore_all_job_logs() # need to manually call restore method - will be automatically called if s.start() is used
