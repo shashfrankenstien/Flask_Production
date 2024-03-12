@@ -161,18 +161,20 @@ def test_eom():
 
 	s.every("eom-weekday").do(job, x="hello", y="eom")
 	eom = dt.fromtimestamp(s.jobs[1].next_timestamp)
-	assert(eom.isoweekday() < 6)
-	eom += timedelta(days=1)
+	assert(eom.isoweekday() < 6) # make sure it's a weekday
+	eom += timedelta(days=1) # count up to the first if next month
 	while eom.day != 1:
-		assert(eom.isoweekday() >= 6)
+		assert(eom.isoweekday() >= 6) # if there are any days between eom-weekday and 1st of next month, those have to be weekends (convoluted test. hmm..)
+		eom += timedelta(days=1)
 
 	hols = TradingHolidays()
 	s.every("eom-businessday", calendar=hols).do(job, x="hello", y="eom")
 	eom = dt.fromtimestamp(s.jobs[2].next_timestamp)
-	assert(eom.isoweekday() < 6 and eom not in hols)
+	assert(eom.isoweekday() < 6 and eom not in hols)  # make sure it's a businessday
 	eom += timedelta(days=1)
-	while eom.day != 1:
+	while eom.day != 1:  # if there are any days between eom-businessday and 1st of next month, those have to be weekends or holidays (convoluted test. hmm..)
 		assert(eom.isoweekday() >= 6 or eom in hols)
+		eom += timedelta(days=1)
 
 
 def test_monthly():

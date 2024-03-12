@@ -1,14 +1,10 @@
-import os, sys
 from typing import Union, Callable
 import time
 from datetime import datetime as dt
 from logging.handlers import RotatingFileHandler
-import pickle
-import hashlib
 
 import holidays
 from dateutil import tz
-import tzlocal
 
 from .print_logger import (
 	LOGGER,
@@ -38,6 +34,9 @@ from .state import (
 USHolidays = holidays.US()
 
 
+def get_local_timezone_name():
+	return tz.gettz(None).tzname(dt.now())
+
 
 
 class TaskScheduler(object):
@@ -47,6 +46,7 @@ class TaskScheduler(object):
 	Args:
 	- check_interval (int): how often to check for pending jobs
 	- holidays_calendar (holidays.HolidayBase): calendar to use for intervals like `businessday`
+	- tzname (str): name of timezone as supported by dateutil.tz
 	- on_job_error (function(e)): function to call if any job fail
 	- log_filepath (path): file to write logs to
 	- log_maxsize (int): byte limit per log file
@@ -73,7 +73,7 @@ class TaskScheduler(object):
 		self._startup_grace_mins = startup_grace_mins
 		self.on_job_error = on_job_error
 
-		tzname = tzname or tzlocal.get_localzone_name() # if None, default to local timezone
+		tzname = tzname or get_local_timezone_name() # if None, default to local timezone
 		if tz.gettz(tzname) is None:
 			raise ValueError(f"unknown timezone '{tzname}'")
 		self._tz_default = tzname

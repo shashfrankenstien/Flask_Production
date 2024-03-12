@@ -64,7 +64,8 @@ TaskScheduler
       log_maxsize=5*1024*1024, # 5 MB
       log_backups=1,
       startup_grace_mins=0, # minutes
-      persist_states=True)
+      persist_states=True,
+      state_handler=None)
 
 
 Parameters:
