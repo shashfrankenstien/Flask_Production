@@ -600,6 +600,7 @@ def test_run_script(script_dir):
 		f.write("print('in import_me')\n")
 		f.write("def test():\n")
 		f.write("\tprint('import works')\n")
+		f.close() # really windows?? :/
 
 	with open(os.path.join(script_dir, script_name), 'w') as f:
 		f.write(f"import time\n")
@@ -607,9 +608,11 @@ def test_run_script(script_dir):
 		f.write(f"{import_name}.test()\n")
 		f.write("time.sleep(1)\n")
 		f.write("print('Done')\n")
+		f.close() # really windows?? :/
 
 	with open(os.path.join(script_dir, failing_script_name), 'w') as f:
 		f.write(f"1/0\n")
+		f.close() # really windows?? :/
 
 	s = TaskScheduler()
 	j_parallel = s.every(1).run_script_parallel(script_dir, failing_script_name)
