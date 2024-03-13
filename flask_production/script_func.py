@@ -19,18 +19,25 @@ class ScriptFunc(ModuleType):
 
 
     def __call__(self):
+        wd = os.getcwd()
+        os.chdir(self.abs_dir_path)
         cmd = [sys.executable, "-u", self.__file__] + list(self.args)
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        # Grab stdout line by line as it becomes available.  This will loop until p terminates.
-        while p.poll() is None:
-            l = p.stdout.readline().decode().strip() # This blocks until it receives a newline.
-            print(l)
-        # # When the subprocess terminates there might be unconsumed output
-        # # that still needs to be processed.
-        print(p.stdout.read().decode().strip())
-        err = p.stderr.read().decode().strip()
-        if err:
-            e = err.split('\n')[-1]
-            raise Exception(f"{e}\n\nraised from subprocess:\n{err}")
-        p.wait()
+
+        try:
+            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            # Grab stdout line by line as it becomes available.  This will loop until p terminates.
+            while p.poll() is None:
+                l = p.stdout.readline().decode().strip() # This blocks until it receives a newline.
+                print(l)
+            # # When the subprocess terminates there might be unconsumed output
+            # # that still needs to be processed.
+            print(p.stdout.read().decode().strip())
+            err = p.stderr.read().decode().strip()
+            if err:
+                e = err.split('\n')[-1]
+                raise Exception(f"{e}\n\nraised from subprocess:\n{err}")
+            p.wait()
+
+        finally:
+            os.chdir(wd)
 

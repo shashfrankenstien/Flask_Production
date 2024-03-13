@@ -535,12 +535,19 @@ def test_fs_persistent_logs():
 	assert(isinstance(j._run_info._ended_at, dt)) # test if it ran even without persist_states
 
 
-
-def test_sqlite_persistent_logs():
+@pytest.fixture
+def sqlalchemy_state():
 	state = SQLAlchemyState(f"sqlite:///{DB_STATE_TEST_FILE}")
+	yield state
+	state._engine.dispose()
+	if os.path.isfile(DB_STATE_TEST_FILE):
+		os.remove(DB_STATE_TEST_FILE)
+
+
+def test_sqlite_persistent_logs(sqlalchemy_state):
 	assert(not os.path.isfile(DB_STATE_TEST_FILE)) # file should not be created until first use
 
-	s = TaskScheduler(state_handler=state) # persist_states=True by default
+	s = TaskScheduler(state_handler=sqlalchemy_state) # persist_states=True by default
 	assert(s._state_handler is not None)
 
 	j = s.every(1).do(job, x="hello", y="state")
@@ -559,7 +566,7 @@ def test_sqlite_persistent_logs():
 
 
 	# restore saved states
-	s = TaskScheduler(state_handler=state)
+	s = TaskScheduler(state_handler=sqlalchemy_state)
 	j = s.every(1).do(job, x="hello", y="state")
 
 	s.restore_all_job_logs() # need to manually call restore method - will be automatically called if s.start() is used
@@ -571,31 +578,53 @@ def test_sqlite_persistent_logs():
 	s.check()
 	assert(isinstance(j._run_info._ended_at, dt))
 
-	state._engine.dispose()
-	if os.path.isfile(DB_STATE_TEST_FILE):
-		os.remove(DB_STATE_TEST_FILE)
 
 
-def test_run_script():
+@pytest.fixture
+def script_dir():
 	cwd = os.path.dirname(os.path.abspath(__file__))
+	dir_path = os.path.join(cwd, "testscript_dir")
+	yield dir_path
+	shutil.rmtree(dir_path)
+
+
+def test_run_script(script_dir):
+	# basic test setup
 	script_name = "testscript.py"
-	script_path = os.path.join(cwd, script_name)
-	with open(script_path, 'w') as f:
-		f.write("import time\n")
-		f.write("print('Hello')\n")
+	failing_script_name = "testscript_failing.py"
+	import_name = "import_me"
+	# working directory test
+	# here we need to check and make sure that the script can import from adjacent files
+	# and not import files outside. ugh
+	os.makedirs(script_dir)
+	with open(os.path.join(script_dir, import_name + ".py"), 'w') as f:
+		f.write("print('in import_me')\n")
+		f.write("def test():\n")
+		f.write("\tprint('import works')\n")
+
+	with open(os.path.join(script_dir, script_name), 'w') as f:
+		f.write(f"import time\n")
+		f.write(f"import {import_name}\n")
+		f.write(f"{import_name}.test()\n")
 		f.write("time.sleep(1)\n")
-		f.write("print('World')\n")
+		f.write("print('Done')\n")
+
+	with open(os.path.join(script_dir, failing_script_name), 'w') as f:
+		f.write(f"1/0\n")
 
 	s = TaskScheduler()
-	j = s.every(1).run_script(cwd, script_name)
-	j_parallel = s.every(1).run_script_parallel(cwd, script_name)
+	j_parallel = s.every(1).run_script_parallel(script_dir, failing_script_name)
+	j = s.every(1).run_script(script_dir, script_name)
 
 	time.sleep(1.5)
 	s.check()
-	time.sleep(2)
+	time.sleep(1)
 	assert(isinstance(j._run_info._ended_at, dt))
 	assert(isinstance(j_parallel._run_info._ended_at, dt))
-	assert(cwd in j._run_info.log)
-	assert(cwd in j_parallel._run_info.log)
+	assert(script_dir in j._run_info.log)
+	assert(script_dir in j_parallel._run_info.log)
 
-	os.remove(script_path)
+	assert(j._run_info.error == '')
+	assert('ZeroDivisionError' in j_parallel._run_info.error)
+
+
