@@ -24,6 +24,8 @@ from .jobs import (
 	BadScheduleError
 )
 
+from .script_func import ScriptFunc
+
 from .state import (
 	BaseStateHandler,
 	FileSystemState,
@@ -163,7 +165,8 @@ class TaskScheduler(object):
 		'''alias of .timezone() method'''
 		return self.timezone(*args, **kwargs)
 
-	def do(self, func, do_parallel=False, **kwargs):
+
+	def _create_job(self, func, **kwargs):
 		'''
 		register 'func' for the job
 		- if do_parallel is True, run job in a prallel thread
@@ -199,16 +202,42 @@ class TaskScheduler(object):
 			j.register_callback(self._state_handler.save_job_logs, cb_type="onenable")
 			j.register_callback(self._state_handler.save_job_logs, cb_type="ondisable")
 			j.register_callback(self._state_handler.save_job_logs, cb_type="oncomplete")
-		if do_parallel:
-			j = AsyncJobWrapper(j)
-		print(j)
-		self.jobs.append(j)
+
 		self.__reset_defaults()
+		print(j)
+		return j
+
+
+	def do(self, func, do_parallel=False, **kwargs):
+		j = self._create_job(func, **kwargs)
+		if do_parallel:
+			print("================================================")
+			print("==== do_parallel boolean argument will be removed")
+			print("==== use do_parallel() method  instead")
+			print("================================================")
+			j = AsyncJobWrapper(j)
+		self.jobs.append(j)
 		return j
 
 	def do_parallel(self, func, **kwargs):
 		'''helper function to run job in a separate thread'''
-		return self.do(func, do_parallel=True, **kwargs)
+		j = self._create_job(func, **kwargs)
+		j = AsyncJobWrapper(j)
+		self.jobs.append(j)
+		return j
+
+	def run_script(self, abs_dir_path, script_name, *args):
+		func = ScriptFunc(abs_dir_path, script_name, *args)
+		j = self._create_job(func)
+		self.jobs.append(j)
+		return j
+
+	def run_script_parallel(self, abs_dir_path, script_name, *args):
+		func = ScriptFunc(abs_dir_path, script_name, *args)
+		j = self._create_job(func)
+		j = AsyncJobWrapper(j)
+		self.jobs.append(j)
+		return j
 
 	# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 	# -=-=-=-=-=-=-=-= Scheduler control methods =-=-=-=-=-=-=-=-=-=-=

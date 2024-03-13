@@ -305,6 +305,7 @@ class Job(object):
 				))
 			self.is_running = False
 
+
 	def run(self, is_rerun: bool=False):
 		'''
 		begin job run
@@ -314,12 +315,16 @@ class Job(object):
 		'''
 		with self._run_info.start_capture(): # captures all writes to stdout
 			self._run(is_rerun=is_rerun)
-		# call any registered on-complete callbacks
-		for cb in self._on_complete_cbs:
+
+		if self._run_info.error: # print any errors outside of capture
+			print(self._run_info.error)
+
+		for cb in self._on_complete_cbs: # call any registered on-complete callbacks
 			try:
 				cb(self)
 			except Exception as e:
 				print("on-complete-cb-error:", str(e))
+
 
 	def _next_run_dt(self):
 		return self.to_datetime(self.next_timestamp) if self.next_timestamp!=0 else None

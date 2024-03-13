@@ -7,7 +7,7 @@ __pycache__
 
 func_run.py
 consolidate.py
-
+test.py
 
 *.egg-info
 build
