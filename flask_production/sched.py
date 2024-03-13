@@ -226,14 +226,14 @@ class TaskScheduler(object):
 		self.jobs.append(j)
 		return j
 
-	def run_script(self, abs_dir_path, script_name, *args):
-		func = ScriptFunc(abs_dir_path, script_name, *args)
+	def run_script(self, script_dir_path, script_name, *args):
+		func = ScriptFunc(script_dir_path, script_name, *args)
 		j = self._create_job(func)
 		self.jobs.append(j)
 		return j
 
-	def run_script_parallel(self, abs_dir_path, script_name, *args):
-		func = ScriptFunc(abs_dir_path, script_name, *args)
+	def run_script_parallel(self, script_dir_path, script_name, *args):
+		func = ScriptFunc(script_dir_path, script_name, *args)
 		j = self._create_job(func)
 		j = AsyncJobWrapper(j)
 		self.jobs.append(j)

@@ -582,8 +582,7 @@ def test_sqlite_persistent_logs(sqlalchemy_state):
 
 @pytest.fixture
 def script_dir():
-	cwd = os.path.dirname(os.path.abspath(__file__))
-	dir_path = os.path.join(cwd, "testscript_dir")
+	dir_path = os.path.join(os.getcwd(), "testscript_dir")
 	yield dir_path
 	shutil.rmtree(dir_path)
 
@@ -614,17 +613,21 @@ def test_run_script(script_dir):
 
 	s = TaskScheduler()
 	j_parallel = s.every(1).run_script_parallel(script_dir, failing_script_name)
+	j_parallel2 = s.every(1).run_script_parallel(os.path.basename(script_dir), script_name) # testing relative name
 	j = s.every(1).run_script(script_dir, script_name)
 
 	time.sleep(1.5)
 	s.check()
 	time.sleep(1)
-	assert(isinstance(j._run_info._ended_at, dt))
 	assert(isinstance(j_parallel._run_info._ended_at, dt))
-	assert(script_dir in j._run_info.log)
+	assert(isinstance(j_parallel2._run_info._ended_at, dt))
+	assert(isinstance(j._run_info._ended_at, dt))
 	assert(script_dir in j_parallel._run_info.log)
+	assert(script_dir in j_parallel2._run_info.log)
+	assert(script_dir in j._run_info.log)
 
-	assert(j._run_info.error == '')
 	assert('ZeroDivisionError' in j_parallel._run_info.error)
+	assert(j_parallel2._run_info.error == '')
+	assert(j._run_info.error == '')
 
 

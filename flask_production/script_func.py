@@ -5,22 +5,37 @@ from types import ModuleType
 
 class ScriptFunc(ModuleType):
 
-    def __init__(self, abs_dir_path, script_name, *args) -> None:
-        self.abs_dir_path = abs_dir_path
+    def __init__(self, script_dir_path: str, script_name: str, *args) -> None:
+        script_dir_path = os.path.abspath(script_dir_path)
+        if not os.path.isdir(script_dir_path):
+            raise ValueError(f"'{script_dir_path}' not found")
+
+        if not script_name.endswith(".py"):
+            raise ValueError("Only python scripts supported at this time")
+
+        self.__file__ = os.path.join(script_dir_path, script_name)
+
+        if not os.path.isfile(self.__file__):
+            raise FileNotFoundError(f"'{self.__file__}' not found")
+
+        self.__module__ = script_dir_path
+        self.__qualname__ = f'[{script_name}]'
+        if args:
+            self.__qualname__ += ' ' + ' '.join(args)
+
+        self.__doc__ = f"Script called '{script_name}' defined in '{script_dir_path}'"
+
+        self.script_dir_path = script_dir_path
         self.script_name = script_name
         self.args = args
 
-        self.__module__ = abs_dir_path
-        self.__qualname__ = f'[{script_name}]'
-        self.__file__ = os.path.join(abs_dir_path, script_name)
-        if args:
-            self.__qualname__ += ' ' + ' '.join(args)
-        self.__doc__ = f"Script called '{script_name}' defined in '{abs_dir_path}'"
+
+
 
 
     def __call__(self):
         wd = os.getcwd()
-        os.chdir(self.abs_dir_path)
+        os.chdir(self.script_dir_path)
         cmd = [sys.executable, "-u", self.__file__] + list(self.args)
 
         try:
