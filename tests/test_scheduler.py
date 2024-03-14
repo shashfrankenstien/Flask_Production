@@ -583,8 +583,16 @@ def test_sqlite_persistent_logs(sqlalchemy_state):
 @pytest.fixture
 def script_dir():
 	dir_path = os.path.join(os.getcwd(), "testscript_dir")
+	try:
+		shutil.rmtree(dir_path)
+	except:
+		pass
+	os.makedirs(dir_path)
 	yield dir_path
-	shutil.rmtree(dir_path)
+	try:
+		shutil.rmtree(dir_path)
+	except:
+		pass
 
 
 def test_run_script(script_dir):
@@ -595,12 +603,10 @@ def test_run_script(script_dir):
 	# working directory test
 	# here we need to check and make sure that the script can import from adjacent files
 	# and not import files outside. ugh
-	os.makedirs(script_dir)
 	with open(os.path.join(script_dir, import_name + ".py"), 'w') as f:
 		f.write("print('in import_me')\n")
 		f.write("def test():\n")
 		f.write("\tprint('import works')\n")
-		f.close() # really windows?? :/
 
 	with open(os.path.join(script_dir, script_name), 'w') as f:
 		f.write(f"import time\n")
@@ -608,11 +614,9 @@ def test_run_script(script_dir):
 		f.write(f"{import_name}.test()\n")
 		f.write("time.sleep(1)\n")
 		f.write("print('Done')\n")
-		f.close() # really windows?? :/
 
 	with open(os.path.join(script_dir, failing_script_name), 'w') as f:
 		f.write(f"1/0\n")
-		f.close() # really windows?? :/
 
 	s = TaskScheduler()
 	j_parallel = s.every(1).run_script_parallel(script_dir, failing_script_name)
