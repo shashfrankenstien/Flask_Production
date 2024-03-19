@@ -621,7 +621,7 @@ def test_run_script(script_dir):
 	s = TaskScheduler()
 	j_parallel = s.every(1).run_script_parallel(script_dir, failing_script_name)
 	j_parallel2 = s.every(1).run_script_parallel(os.path.basename(script_dir), script_name) # testing relative name
-	j = s.every(1).run_script(script_dir, script_name)
+	j = s.every(1).run_script(os.path.basename(script_dir), script_name) # relative script dir path
 
 	time.sleep(1.5)
 	s.check()
