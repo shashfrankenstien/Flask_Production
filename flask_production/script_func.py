@@ -44,11 +44,12 @@ class ScriptFunc(ModuleType):
             # # When the subprocess terminates there might be unconsumed output
             # # that still needs to be processed.
             print(p.stdout.read().decode().strip())
-
+            err = p.stderr.read().decode().strip()
             if p.returncode != 0:
-                err = p.stderr.read().decode().strip()
                 e = err.split('\n')[-1]
                 raise Exception(f"{e}\n\nraised from subprocess:\n{err}")
+            else:
+                print(err) # not really an error? maybe a warning, or script returns 0 after failure :/
             p.wait()
 
         finally:
