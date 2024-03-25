@@ -223,8 +223,8 @@ def test_repeat():
 def test_repeat_parallel():
 	sleep_time = 1
 	s = TaskScheduler()
-	s.every(sleep_time).do(job, x="hello", y="world", do_parallel=True) # old style (pre v2.4.1)
-	s.every(sleep_time).do_parallel(job, x="hello", y="world") # new style (v2.4.1)
+	s.every(sleep_time).do_parallel(job, x="hello", y="world")
+	s.every(sleep_time).do_parallel(job, x="hello", y="world")
 	ts = s.jobs[0].next_timestamp
 	d = time.time()
 	assert (abs(ts - (d+sleep_time)) < 0.1)
@@ -235,6 +235,29 @@ def test_repeat_parallel():
 	assert (s.jobs[0].next_timestamp != ts) # rescheduled parallely
 	assert (abs(s.jobs[0].next_timestamp - (d+(2*sleep_time))) < 0.1)
 	assert (abs(s.jobs[0].next_timestamp - s.jobs[1].next_timestamp) < 0.1)
+
+
+def test_parallel_wait_running():
+	'''long running parallel jobs shouldn't step on it's own feet (don't start when another instance is running)'''
+	run_count = 0
+	run_count = 0
+	def _slow_job():
+		nonlocal run_count
+		time.sleep(2)
+		run_count += 1
+
+	s = TaskScheduler()
+	s.every(1).do_parallel(_slow_job)
+	s.every(1).do_parallel(_slow_job)
+	time.sleep(1)
+	s.check() # both kick off
+	time.sleep(2)
+	s.check() # nothing runs here as both as running
+	time.sleep(1)
+	assert(run_count==2)
+	s.check() # both kick off again
+	time.sleep(3)
+	assert(run_count==4)
 
 
 def test_parallel_stopper():
@@ -600,6 +623,11 @@ def test_run_script(script_dir):
 	script_name = "testscript.py"
 	failing_script_name = "testscript_failing.py"
 	import_name = "import_me"
+	error_count = 0
+	def _error_handler(e):
+		nonlocal error_count
+		error_count += 1
+		print(e)
 	# working directory test
 	# here we need to check and make sure that the script can import from adjacent files
 	# and not import files outside. ugh
@@ -610,15 +638,17 @@ def test_run_script(script_dir):
 
 	with open(os.path.join(script_dir, script_name), 'w') as f:
 		f.write(f"import time\n")
+		f.write(f"import warnings\n")
 		f.write(f"import {import_name}\n")
 		f.write(f"{import_name}.test()\n")
 		f.write("time.sleep(1)\n")
+		f.write("warnings.warn('warnings should not cause error')\n") #
 		f.write("print('Done')\n")
 
 	with open(os.path.join(script_dir, failing_script_name), 'w') as f:
 		f.write(f"1/0\n")
 
-	s = TaskScheduler()
+	s = TaskScheduler(on_job_error=_error_handler)
 	j_parallel = s.every(1).run_script_parallel(script_dir, failing_script_name)
 	j_parallel2 = s.every(1).run_script_parallel(os.path.basename(script_dir), script_name) # testing relative name
 	j = s.every(1).run_script(os.path.basename(script_dir), script_name) # relative script dir path
@@ -637,4 +667,4 @@ def test_run_script(script_dir):
 	assert(j_parallel2._run_info.error == '')
 	assert(j._run_info.error == '')
 
-
+	assert(error_count == 1) # failing_script_name should be the only one that fails

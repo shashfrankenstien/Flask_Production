@@ -2,6 +2,7 @@ from typing import Union, Callable
 import time
 from datetime import datetime as dt
 from logging.handlers import RotatingFileHandler
+import warnings
 
 import holidays
 from dateutil import tz
@@ -215,6 +216,7 @@ class TaskScheduler(object):
 			print("==== do_parallel boolean argument will be removed")
 			print("==== use do_parallel() method  instead")
 			print("================================================")
+			warnings.warn("do_parallel boolean argument will be removed", category=DeprecationWarning)
 			j = AsyncJobWrapper(j)
 		self.jobs.append(j)
 		return j

@@ -30,9 +30,6 @@ class ScriptFunc(ModuleType):
         self.args = args
 
 
-
-
-
     def __call__(self):
         wd = os.getcwd()
         os.chdir(self.script_dir_path)
@@ -47,8 +44,9 @@ class ScriptFunc(ModuleType):
             # # When the subprocess terminates there might be unconsumed output
             # # that still needs to be processed.
             print(p.stdout.read().decode().strip())
-            err = p.stderr.read().decode().strip()
-            if err:
+
+            if p.returncode != 0:
+                err = p.stderr.read().decode().strip()
                 e = err.split('\n')[-1]
                 raise Exception(f"{e}\n\nraised from subprocess:\n{err}")
             p.wait()

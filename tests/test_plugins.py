@@ -58,8 +58,8 @@ def test_blankpage(client):
 
 def test_monitor_homepage(client):
 	sched.every("day").at("8:00").do(another_task)
-	sched.every(20).do(wash_car, do_parallel=True)
-	sched.every(30).do(lambda: wash_car(), do_parallel=True)
+	sched.every(20).do_parallel(wash_car)
+	sched.every(30).do_parallel(lambda: wash_car())
 	# CherryFlask(app, sched).run() # unused
 
 	homepage = client.get("/{}".format(monitor._endpoint))
@@ -81,7 +81,7 @@ def test_monitor_jobpage(client):
 
 
 def test_monitor_rerun_btn(client):
-	sched.every(30).do(another_task, do_parallel=True)
+	sched.every(30).do_parallel(another_task)
 	res = client.post("/{}/rerun".format(monitor._endpoint), json={'jobid':0}) # missing api_token causes call to be blocked
 	assert(res.status_code==200)
 	assert("blocked" in res.data.decode(errors='ignore').lower())
@@ -91,7 +91,7 @@ def test_monitor_rerun_btn(client):
 
 
 def test_monitor_disable_btn(client):
-	sched.every(30).do(another_task, do_parallel=True)
+	sched.every(30).do_parallel(another_task)
 	payload = {'jobid':0, 'api_token': monitor._api_protection_token, 'disable': True}
 	res = client.post("/{}/enable_disable".format(monitor._endpoint), json=payload)
 	assert(res.status_code==200)
