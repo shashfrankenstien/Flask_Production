@@ -80,6 +80,7 @@ class TaskScheduler(object):
 		if tz.gettz(tzname) is None:
 			raise ValueError(f"unknown timezone '{tzname}'")
 		self._tz_default = tzname
+		print("* Default Timezone:", self._tz_default, "*")
 
 		if holidays_calendar is not None:
 			self.holidays_calendar = holidays_calendar
