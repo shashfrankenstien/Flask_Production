@@ -342,17 +342,21 @@ class TaskMonitor(object):
 			return json.dumps({'error':'Nothing here'})
 		else:
 			details = []
-			summary = {'count': 0, 'errors': 0}
+			summary = {'count': 0, 'running': 0, 'errors': 0}
 			for j in self.sched.jobs:
 				jd = j.to_dict()
 				state = self.__state(jd)
 				summary['count'] += 1
 				if state['state'] == "ERROR":
 					summary['errors'] += 1
+				elif state['state'] == 'RUNNING':
+					summary['running'] += 1
 				details.append({
 					'id': jd['jobid'],
 					'state': state['state'],
-					'signature': jd['signature']
+					'signature': jd['signature'],
+					'prev_run': jd['logs']['start'],
+					'next_run': jd['next_run'],
 				})
 			out = {'name': self._display_name, 'summary': summary, 'details': details}
 			return json.dumps({'success': out}, default=str)

@@ -36,24 +36,20 @@ class _ThreadSafeTextIOWrapperProxy(_pyio.TextIOWrapper):  # type: ignore
         super().__init__(*args, **kwargs)
 
     def register(self, new_buffer, no_close=True):
-        # type: (BinaryIO, bool) -> None
         self._local_objects.buffer = new_buffer
         self._local_objects.no_close = no_close
         self._local_objects.registered = True
 
     def unregister(self):
-        # type: () -> None
         self._local_objects.buffer = None
         self._local_objects.registered = False
 
     @property
     def _registered(self):
-        # type: () -> bool
         return getattr(self._local_objects, "registered", False)
 
     @property
     def buffer(self):
-        # type: () -> BinaryIO
         if not self._registered:
             return self._buffer
 
@@ -62,19 +58,16 @@ class _ThreadSafeTextIOWrapperProxy(_pyio.TextIOWrapper):  # type: ignore
         return buf
 
     def close(self):
-        # type: () -> None
         if self._registered and self._local_objects.no_close:
             self.buffer.flush()
         else:
             super().buffer.flush()
 
     def write(self, s):
-        # type: (str) -> None
         return super().write(s)
 
 
 def _create_proxy(target):
-    # type: (TextIO) -> ThreadSafeTextIOWrapperProxy
     return _ThreadSafeTextIOWrapperProxy(
         target.buffer,
         target.encoding,
@@ -109,8 +102,8 @@ class _redirect_stdout(object):
     """
 
     _lock = threading.Lock()
-    _original = None  # type: Dict[str, SysIO]
-    _proxy = None  # type: Dict[str, ProxyIO]
+    _original = None
+    _proxy = None
     _n_use = 0
 
     def __init__(self, new_obj):

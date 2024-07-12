@@ -64,6 +64,7 @@ STYLES = '''
 		align-items: center;
 		width:100%;
 		background-color: #eee;
+		font-size: 0.8rem;
 	}
 	.block-msg > div {
 		display:flex;
@@ -80,6 +81,10 @@ STYLES = '''
 		background-color: #f53b3b !important;
 		border: none !important;
 		color: white;
+	}
+	.running-msg {
+		background-color: yellow !important;
+		border: none !important;
 	}
 </style>
 '''
@@ -151,15 +156,24 @@ class ControlPanel:
 			else:
 				mon = monitor['success']
 				err_msg_css = []
+				running_msg_css = []
 				if mon['summary']['errors'] > 0:
 					css.append('error-border')
 					err_msg_css.append('error-msg')
-				msg = f"tasks: {DIV(mon['summary']['count'])}  errors: {DIV(mon['summary']['errors'], css=err_msg_css)}"
+				if mon['summary']['running'] > 0:
+					running_msg_css.append('running-msg')
+
+				task_msg = f"tasks: {DIV(mon['summary']['count'])}"
+				running_msg = f"running: {DIV(mon['summary']['running'], css=running_msg_css)}"
+				error_msg = f"errors: {DIV(mon['summary']['errors'], css=err_msg_css)}"
+
+				msg = f"{task_msg}  {running_msg}  {error_msg}"
 				elem = SPAN(B(mon['name']), css=['block-title']) + SPAN(msg, css=['block-msg'])
 				attrs['data-url'] = monitor['url']
 				attrs['title'] = f"{mon['name']}\n{monitor['url']}"
 			content.append(DIV(elem, css=css, attrs=attrs))
 			tot_jobs += mon['summary']['count']
+
 		wrapper = DIV(''.join(content), css='wrapper')
 		header_txt = f"Control Panel"
 		header = DIV(H(2, header_txt), css=['header-bar'])
