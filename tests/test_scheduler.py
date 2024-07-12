@@ -638,8 +638,10 @@ def test_run_script(script_dir):
 
 	with open(os.path.join(script_dir, script_name), 'w') as f:
 		f.write(f"import time\n")
+		f.write(f"import sys\n")
 		f.write(f"import warnings\n")
 		f.write(f"import {import_name}\n")
+		f.write("print(sys.argv)\n")
 		f.write(f"{import_name}.test()\n")
 		f.write("time.sleep(1)\n")
 		f.write("warnings.warn('warnings should not cause error')\n") #
@@ -652,6 +654,7 @@ def test_run_script(script_dir):
 	j_parallel = s.every(1).run_script_parallel(script_dir, failing_script_name)
 	j_parallel2 = s.every(1).run_script_parallel(os.path.basename(script_dir), script_name) # testing relative name
 	j = s.every(1).run_script(os.path.basename(script_dir), script_name) # relative script dir path
+	j = s.every(1).run_script(os.path.basename(script_dir), script_name, script_args=['--test_arg']) # relative script arguments
 
 	time.sleep(1.5)
 	s.check()
@@ -668,3 +671,9 @@ def test_run_script(script_dir):
 	assert(j._run_info.error == '')
 
 	assert(error_count == 1) # failing_script_name should be the only one that fails
+
+	# test script logs
+	assert('import works' in j._run_info.log) # test import
+	assert('warning' in j._run_info.log) # test warning
+	assert('--test_arg' in j._run_info.log) # test script arguments
+	assert('Done' in j._run_info.log) # just the last thing - test it anyway
