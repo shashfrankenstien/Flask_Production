@@ -1,4 +1,4 @@
-from typing import Union, Callable
+from typing import Union, Callable, List
 import time
 from datetime import datetime as dt
 from logging.handlers import RotatingFileHandler
@@ -229,13 +229,13 @@ class TaskScheduler(object):
 		self.jobs.append(j)
 		return j
 
-	def run_script(self, script_dir_path:str, script_name:str, script_args:list[str]=[]):
+	def run_script(self, script_dir_path:str, script_name:str, script_args:List[str]=[]):
 		func = ScriptFunc(script_dir_path, script_name, script_args)
 		j = self._create_job(func)
 		self.jobs.append(j)
 		return j
 
-	def run_script_parallel(self, script_dir_path:str, script_name:str, script_args:list[str]=[]):
+	def run_script_parallel(self, script_dir_path:str, script_name:str, script_args:List[str]=[]):
 		func = ScriptFunc(script_dir_path, script_name, script_args)
 		j = self._create_job(func)
 		j = AsyncJobWrapper(j)

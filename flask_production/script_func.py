@@ -1,11 +1,12 @@
 import os, sys
 import subprocess
 from types import ModuleType
+from typing import List
 
 
 class ScriptFunc(ModuleType):
 
-    def __init__(self, script_dir_path: str, script_name: str, script_args: list[str]=[]) -> None:
+    def __init__(self, script_dir_path: str, script_name: str, script_args: List[str]=[]) -> None:
         script_dir_path = os.path.abspath(script_dir_path)
         if not os.path.isdir(script_dir_path):
             raise ValueError(f"'{script_dir_path}' not found")
