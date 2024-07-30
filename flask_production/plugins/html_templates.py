@@ -1,32 +1,17 @@
+import os
+ROOT = os.path.dirname(os.path.realpath(__file__))
+
+
+def _readTemplate(fileName, **kwargs):
+	with open(fileName, 'r') as f:
+		templateText = f.read()
+	for arg in kwargs:
+		templateText = templateText.replace("{{ "+arg+" }}", str(kwargs[arg]))
+	return templateText
+
 
 def HTML(content, title):
-	return '''
-	<!DOCTYPE html>
-	<html lang="en">
-		<head>
-			<meta charset="UTF-8">
-			<meta name="viewport" content="width=device-width, initial-scale=1.0">
-			<script src="https://cdnjs.cloudflare.com/ajax/libs/tablesort/5.2.1/tablesort.min.js"
-				integrity="sha512-F/gIMdDfda6OD2rnzt/Iyp2V9JLHlFQ+EUyixDg9+rkwjqgW1snpkpx7FD5FV1+gG2fmFj7I3r6ReQDUidHelA=="
-				crossorigin="anonymous"></script>
-			<script src="https://cdnjs.cloudflare.com/ajax/libs/tablesort/5.2.1/sorts/tablesort.number.min.js"
-				integrity="sha512-dRD755QRxlybm0h3LXXIGrFcjNakuxW3reZqnPtUkMv6YsSWoJf+slPjY5v4lZvx2ss+wBZQFegepmA7a2W9eA=="
-				crossorigin="anonymous"></script>
-			<link rel="stylesheet"
-				href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/styles/monokai-sublime.min.css">
-			<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/highlight.min.js"></script>
-			<script src="https://cdn.jsdelivr.net/gh/TRSasasusu/highlightjs-highlight-lines.js@1.2.0/highlightjs-highlight-lines.min.js"></script>
-			<script src="https://cdn.jsdelivr.net/gh/shashfrankenstien/lib-tablefilterjs@v0.0.5/lib-tablefilter.min.js"></script>
-			<script>
-				hljs.configure({{languages: ['python', 'accesslog']}});
-				hljs.initHighlightingOnLoad();
-			</script>
-			<title>{}</title>
-		</head>
-		<body>
-			{}
-		</body>
-	</html>'''.format(title, str(content))
+	return _readTemplate(os.path.join(ROOT, 'web', 'index.html'), title=title, body=str(content))
 
 def _TAG(tag, content, css, attrs):
 	attrs = ["{}='{}'".format(k,v) for k,v in attrs.items()]
@@ -77,10 +62,17 @@ def TR(row, css=[], attrs={}):
 def INPUT(content, css=[], attrs={}):
 	return _TAG('input', content, css, attrs)
 
-def SCRIPT(s):
-	return "<script>{}</script>".format(s)
-
 def CODE(s, css=[]):
 	if not isinstance(css, (list,set,tuple)):
 		css = [css]
 	return "<pre><code class='{}'>{}</code></pre>".format(' '.join(css), s)
+
+def SCRIPT(s):
+	return "<script>{}</script>".format(s)
+
+
+def SCRIPT_SRC(url):
+	return '<script src="{}"></script>'.format(url)
+
+def STYLE_LINK(url):
+	return '<link rel="stylesheet" href="{}">'.format(url)

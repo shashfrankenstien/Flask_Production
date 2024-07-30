@@ -5,204 +5,12 @@ import random
 import string
 
 from dateutil import tz
-from flask import request
+from flask import Flask, Blueprint, request, send_file
 
 
 from .html_templates import * # pylint: disable=unused-wildcard-import
 
 
-STYLES = '''
-<style>
-	html {
-		--console-bg: #333333;
-		--thumb-bg: grey;
-	}
-	body {
-		width:100%;
-		height:100%;
-		margin: 0;
-		display:flex;
-		flex-direction:column;
-		align-items:center;
-		font-family: sans-serif;
-		font-size: 12px;
-	}
-	*::-webkit-scrollbar {
-		width: 14px !important;
-		height: 14px !important;
-	}
-	* {
-		scrollbar-width: thin;
-		scrollbar-color: var(--thumb-bg) var(--console-bg);
-	}
-	*::-webkit-scrollbar-track {
-		background: var(--console-bg);
-	}
-	*::-webkit-scrollbar-thumb {
-		background-color: var(--thumb-bg) ;
-		border-radius: 6px;
-		border: 3px solid var(--console-bg);
-	}
-	*::-webkit-scrollbar-corner {
-		background-color: var(--console-bg) ;
-	}
-	th[role=columnheader]:not(.no-sort) { /*tablesort.css*/
-		cursor: pointer;
-	}
-	th[role=columnheader]:not(.no-sort):after { /*tablesort.css*/
-		content: '';
-		float: right;
-		margin-top: 7px;
-		border-width: 4px 4px 0;
-		border-style: solid;
-		border-color: #e3e3e3 transparent;
-		visibility: hidden;
-		-ms-user-select: none;
-		-webkit-user-select: none;
-		-moz-user-select: none;
-		user-select: none;
-	}
-	th[aria-sort=ascending]:not(.no-sort):after { /*tablesort.css*/
-		border-width: 0 4px 4px;
-	}
-	th[aria-sort]:not(.no-sort):after { /*tablesort.css*/
-		visibility: visible;
-	}
-	small, h2 { padding-top:10px;}
-	table {
-		border-spacing: 5px;
-		border-collapse: collapse;
-		border: 1px solid #c2c2c2;
-		width:85%;
-		margin-top:20px;
-		margin-bottom:40px;
-	}
-	tr:hover { background-color: #ededed; }
-	td, th {
-		border: 1px solid #d1d1d1;
-		padding: 5px;
-	}
-	th {
-		height:2vh;
-		background-color:var(--console-bg);
-		color:white;
-	}
-	td.grey {color:#c2c2c2;}
-	td.yellow {background-color:yellow;}
-	td.green {
-		background-color:#d2ffcc;
-		color:green;
-	}
-	td.red {
-		background-color:red;
-		color:white;
-		font-weight:bold;
-	}
-	td.blue {
-		background-color:blue;
-		color:white;
-		font-weight:bold;
-	}
-	tr.row-hidden { display:none; }
-	a > button {
-		width:100%;
-		height:100%;
-		cursor:pointer;
-	}
-	.container {
-		width:100%;
-		height:100%;
-		display:flex;
-		flex-direction:row;
-	}
-	.center {
-		justify-content:center;
-		align-items:center;
-	}
-	.btn {
-		cursor: pointer;
-	}
-	.btn:disabled,.btn[disabled] {
-		cursor: not-allowed;
-	}
-	.monitor {
-		width: 30vw;
-		height: 100vh;
-		display:flex;
-		flex-flow: column;
-		align-items:center;
-	}
-	.monitor > div {
-		flex: 1 1 auto;
-		width:100%;
-		overflow-wrap: break-word;
-	}
-	.info_table {
-		border:none;
-		margin-bottom:30px;
-		width:100%;
-	}
-	.info_table td {
-		border:none;
-		width:50%;
-		text-align:left;
-	}
-	td.title {
-		font-weight:bold;
-		text-align:right !important;
-		padding-right:20px;
-	}
-	.logs_div {
-		width: 70vw;
-		height: 100vh;
-		display:flex;
-		align-items:center;
-		justify-content:center;
-	}
-	.log_table {
-		table-layout:fixed;
-		width:100%;
-		height:100%;
-		margin-top:0px;
-		margin-bottom:0px;
-		overflow:hidden;
-	}
-	.log_table td, .log_table th {
-		border:none;
-		border-left: 1px solid grey;
-		vertical-align: top;
-		overflow:hidden;
-	}
-	.console-div {
-		width:100%;
-		top:0px;
-		bottom:0px;
-		height:95vh;
-		overflow:scroll;
-		white-space: nowrap;
-		list-style-type: none;
-		font-size: 13px;
-		padding-left: 5px;
-	}
-	.console-color {
-		background-color:var(--console-bg);
-		color:white;
-	}
-	.brdr {border: 1px solid grey;}
-	pre, code {
-		background-color:transparent !important;
-		overflow:visible !important;
-	}
-	input[type=text] {
-		width: 250px;
-		padding: 6px 15px;
-		margin: 8px 0;
-		border: 1px solid #999;
-		border-radius: 3px;
-		outline: none;
-	}
-</style>
-'''
 
 class TaskMonitor(object):
 	'''
@@ -225,7 +33,7 @@ class TaskMonitor(object):
 	- can_disable (bool): if True adds `disable` button to job page
 		- default True
 	'''
-	def __init__(self, app, sched, display_name=None, endpoint="@taskmonitor", homepage_refresh=30, taskpage_refresh=5,
+	def __init__(self, app:Flask, sched, display_name=None, endpoint="@taskmonitor", homepage_refresh=30, taskpage_refresh=5,
 		can_rerun=True, # adds rerun button to job page
 		can_disable=True, # adds disable button to job page
 		):
@@ -242,16 +50,39 @@ class TaskMonitor(object):
 		self._can_rerun = can_rerun
 		self._can_disable = can_disable
 
-		self.app.add_url_rule("/{}".format(self._endpoint), view_func=self.__show_all, methods=['GET'])
-		self.app.add_url_rule("/{}/<int:n>".format(self._endpoint), view_func=self.__show_one, methods=['GET'])
-		self.app.add_url_rule("/{}/rerun".format(self._endpoint), view_func=self.__rerun_job, methods=['POST'])
-		self.app.add_url_rule("/{}/enable_disable".format(self._endpoint), view_func=self.__enable_disable_job, methods=['POST'])
-		self.app.add_url_rule("/{}/json/all".format(self._endpoint), view_func=self.__get_all_json, methods=['GET'])
-		self.app.add_url_rule("/{}/json/summary".format(self._endpoint), view_func=self.__get_summary_json, methods=['GET'])
-		self.app.add_url_rule("/{}/json/<int:n>".format(self._endpoint), view_func=self.__get_one_json, methods=['GET'])
+		bp = Blueprint('taskmonitor_bp', __name__, url_prefix=f"/{self._endpoint}")
+
+		bp.add_url_rule("", view_func=self.__show_all, methods=['GET'])
+		bp.add_url_rule("/<int:n>", view_func=self.__show_one, methods=['GET'])
+		bp.add_url_rule("/rerun", view_func=self.__rerun_job, methods=['POST'])
+		bp.add_url_rule("/enable_disable", view_func=self.__enable_disable_job, methods=['POST'])
+		bp.add_url_rule("/json/all", view_func=self.__get_all_json, methods=['GET'])
+		bp.add_url_rule("/json/summary", view_func=self.__get_summary_json, methods=['GET'])
+		bp.add_url_rule("/json/<int:n>", view_func=self.__get_one_json, methods=['GET'])
+
+		bp.add_url_rule("/static/<type>/<filename>", view_func=self.__serve_file, methods=['GET'])
+		self.app.register_blueprint(bp)
+
+		_favicon_is_set = False
+		for rule in self.app.url_map.iter_rules():
+			if 'favicon.ico' in str(rule):
+				_favicon_is_set = True
+
+		if not _favicon_is_set:
+			self.app.add_url_rule("/favicon.ico", view_func=lambda: self.__serve_file('ico', 'flask_boiler.ico'), methods=['GET'])
+
 
 	def __html_wrap(self, *args):
 		return HTML(''.join(args), title="{} Task Monitor".format(self._display_name))
+
+	def __js_src_wrap(self, filename):
+		return SCRIPT_SRC(f'/{self._endpoint}/static/js/{filename}')
+
+	def __css_src_wrap(self, filename):
+		return STYLE_LINK(f'/{self._endpoint}/static/css/{filename}')
+
+	def __serve_file(self, type, filename):
+		return send_file(os.path.join(ROOT, 'web', type, filename))
 
 	def __state(self, jdict):
 		state = {'state':'READY', 'css': 'grey', 'title': '' }
@@ -371,7 +202,6 @@ class TaskMonitor(object):
 		if len(self.sched.jobs)==0:
 			return 'Nothing here'
 		d = []
-		table_id = 'all-jobs'
 		for j in self.sched.jobs:
 			jd = j.to_dict()
 			duration = self.__duration(jd)
@@ -402,41 +232,21 @@ class TaskMonitor(object):
 			}))
 		rows = [TR(row.values()) for row in d]
 		head = [TH(th, default_sort=(th=="Next Run") ) for th in d[0].keys()]	# apply sorting to 'next run'
-		all_jobs_table = TABLE(thead=THEAD(head), tbody=TBODY(rows), elem_id=table_id)
+		all_jobs_table = TABLE(thead=THEAD(head), tbody=TBODY(rows), elem_id='all-jobs')
 		rerun_txt = SMALL(f"Auto-refresh in {SPAN(self._homepage_refresh, attrs={'id': 'refresh-msg'})} seconds")
 		filter_input = INPUT("", attrs={'type':'text', 'placeholder':'Filter', 'id': 'filter-box'})
 
-		js_auto_reload_variables = '''
-		new Tablesort(document.getElementById('{}'));
-		let COUNT_DOWN = {};
-		'''.format(table_id, self._homepage_refresh)
-
-		js_functions = '''
-		const table = document.getElementById("all-jobs")
-		const filter_box = document.getElementById("filter-box");
-		const tf = new TableFilter(table, filter_box)
-
-		window.addEventListener('load', (event) => {
-			const timer = setInterval(()=>{
-				if (COUNT_DOWN > 0) {
-					COUNT_DOWN --
-					document.getElementById('refresh-msg').innerText = COUNT_DOWN
-				} else {
-					clearInterval(timer)
-					location.reload()
-				}
-			}, 1000)
-		})
-		'''
+		js_auto_reload_variables = '''let COUNT_DOWN = {};'''.format(self._homepage_refresh)
 
 		return self.__html_wrap(
-			STYLES,
+			self.__css_src_wrap('taskmonitor.css'),
 			H(2, "{} - Task Monitor".format(self._display_name)),
 			SPAN("Running since {}".format(self._init_dt)),
 			rerun_txt,
 			filter_input,
 			all_jobs_table,
-			SCRIPT(js_auto_reload_variables + js_functions),
+			SCRIPT(js_auto_reload_variables),
+			self.__js_src_wrap('taskmonitor.js')
 		)
 
 	def __show_one(self, n):
@@ -495,98 +305,19 @@ class TaskMonitor(object):
 		elif jobd['next_run']:
 			next_run_ts = jobd['next_run'].timestamp()
 
-		auto_reload_script = '''
-		Number.prototype.pad = function(size) {{
-			let s = String(this);
-			while (s.length < (size || 2)) {{s = "0" + s;}}
-			return s;
-		}}
-		let running = {is_running}
-		let next_run = {next_run_ts}
-		let err_line = {err_line}
-		function countdown_str(seconds) {{
-			let hours = Math.floor(seconds / (60*60))
-			seconds -= hours * (60*60)
-			let minutes = Math.floor(seconds / 60)
-			seconds -= minutes * 60
-			return `${{hours.pad()}}:${{minutes.pad()}}:${{Math.floor(seconds).pad()}}`
-		}}
-		function rerun_trigger(job_name, jobid) {{
-			const input_txt = prompt("Please type in the job name to confirm rerun", "");
-			console.log(jobid)
-			const payload = {{jobid, api_token:'{api_token}'}}
-			if (input_txt===job_name) {{
-				fetch('./rerun', {{method: 'POST', body: JSON.stringify(payload)}}).then(resp => {{
-					return resp.json();
-				}}).then(j=>{{
-					if (j.success)
-						window.location.reload()
-					else if (j.error)
-						throw Error(j.error)
-					else
-						throw Error("Rerun failed")
-				}}).catch(e=>alert(e))
-			}} else {{
-				alert("Rerun aborted")
-			}}
-		}}
-		function enable_disable(job_name, jobid, disable) {{
-			const prompt_txt = "Please type in the job name to confirm " + ((disable) ? "disable": "enable")
-			const input_txt = prompt(prompt_txt, "");
-			console.log(jobid)
-			const payload = {{jobid, disable, api_token:'{api_token}'}}
-			if (input_txt===job_name) {{
-				fetch('./enable_disable', {{method: 'POST', body: JSON.stringify(payload)}}).then(resp => {{
-					return resp.json();
-				}}).then(j=>{{
-					if (j.success)
-						window.location.reload()
-					else if (j.error)
-						throw Error(j.error)
-					else
-						throw Error("Action failed")
-				}}).catch(e=>alert(e))
-			}} else {{
-				alert("Action aborted")
-			}}
-		}}
-		window.addEventListener('load', (event) => {{
-			//scroll to bottom
-			document.getElementsByClassName("log_table")[0].querySelectorAll("div").forEach(d=>d.scrollTo(0,d.scrollHeight))
-			if (running) {{
-				setTimeout(()=>location.reload(), {taskpage_refresh}000)
-			}} else if ( isNaN(next_run) ) {{ // if not number
-				document.getElementById("next-run-in").innerHTML = next_run
-			}} else {{
-				const timer = setInterval(()=>{{
-					let ttr = (next_run * 1000)-Date.now()
-					if (ttr<=0) {{
-						clearInterval(timer)
-						setTimeout(()=>location.reload(), 1000) // small timeout to avoid too many reloads
-					}} else {{
-						document.getElementById("next-run-in").innerHTML = countdown_str(ttr/1000)
-					}}
-				}}, 1000)
-			}}
-			//highlight error line
-			if (err_line>=0) {{
-				hljs.initHighlightLinesOnLoad([
-					[{{start: err_line, end: err_line, color: 'rgba(255, 0, 0, 0.4)'}}], // Highlight some lines in the first code block.
-				]);
-			}}
-		}});
-		'''.format(
-			is_running=int(jobd['is_running']),
-			next_run_ts=next_run_ts,
-			err_line=self.__src_err_line(jobd),
-			taskpage_refresh=self._taskpage_refresh,
-			api_token=self._api_protection_token
-		)
+		variables_script = f'''
+		let RUNNING = {int(jobd['is_running'])};
+		let NEXT_RUN = {next_run_ts};
+		let ERR_LINE = {self.__src_err_line(jobd)};
+		let TASKPAGE_REFRESH = {self._taskpage_refresh};
+		let API_TOKEN = '{self._api_protection_token}';
+		'''
 
 		return self.__html_wrap(
-			STYLES,
+			self.__css_src_wrap('taskmonitor.css'),
 			container,
-			SCRIPT(auto_reload_script)
+			SCRIPT(variables_script),
+			self.__js_src_wrap('task.js')
 		)
 
 
