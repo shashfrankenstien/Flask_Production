@@ -14,7 +14,7 @@ function countdown_str(seconds) {
 function rerun_trigger(job_name, jobid) {
     const input_txt = prompt("Please type in the job name to confirm rerun", "");
     console.log(jobid)
-    const payload = {jobid, api_token:'{api_token}'}
+    const payload = {jobid, api_token: API_TOKEN}
     if (input_txt===job_name) {
         fetch('./rerun', {method: 'POST', body: JSON.stringify(payload)}).then(resp => {
             return resp.json();

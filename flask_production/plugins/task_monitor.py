@@ -72,8 +72,8 @@ class TaskMonitor(object):
 			self.app.add_url_rule("/favicon.ico", view_func=lambda: self.__serve_file('ico', 'flask_boiler.ico'), methods=['GET'])
 
 
-	def __html_wrap(self, *args):
-		return HTML(''.join(args), title="{} Task Monitor".format(self._display_name))
+	def __html_wrap(self, elems, css=[]):
+		return HTML(''.join(elems), title="{} Task Monitor".format(self._display_name), css=css)
 
 	def __js_src_wrap(self, filename):
 		return SCRIPT_SRC(f'/{self._endpoint}/static/js/{filename}')
@@ -82,7 +82,7 @@ class TaskMonitor(object):
 		return STYLE_LINK(f'/{self._endpoint}/static/css/{filename}')
 
 	def __serve_file(self, type, filename):
-		return send_file(os.path.join(ROOT, 'web', type, filename))
+		return send_file(os.path.join(WEB_FOLDER, type, filename))
 
 	def __state(self, jdict):
 		state = {'state':'READY', 'css': 'grey', 'title': '' }
@@ -232,21 +232,32 @@ class TaskMonitor(object):
 			}))
 		rows = [TR(row.values()) for row in d]
 		head = [TH(th, default_sort=(th=="Next Run") ) for th in d[0].keys()]	# apply sorting to 'next run'
-		all_jobs_table = TABLE(thead=THEAD(head), tbody=TBODY(rows), elem_id='all-jobs')
-		rerun_txt = SMALL(f"Auto-refresh in {SPAN(self._homepage_refresh, attrs={'id': 'refresh-msg'})} seconds")
+		all_jobs_table = TABLE(thead=THEAD(head), tbody=TBODY(rows), elem_id='all-jobs', css='all-jobs')
+		refresh_text = SMALL(f"Auto-refresh in {SPAN(self._homepage_refresh, attrs={'id': 'refresh-msg'})} seconds")
 		filter_input = INPUT("", attrs={'type':'text', 'placeholder':'Filter', 'id': 'filter-box'})
 
 		js_auto_reload_variables = '''let COUNT_DOWN = {};'''.format(self._homepage_refresh)
 
+		container = DIV(
+			'\n'.join([
+				H(2, "{} - Task Monitor".format(self._display_name)),
+				SPAN("Running since {}".format(self._init_dt)),
+				refresh_text,
+				filter_input,
+				all_jobs_table,
+			]),
+			css=["container", "container-vertical", 'center']
+		)
+
 		return self.__html_wrap(
-			self.__css_src_wrap('taskmonitor.css'),
-			H(2, "{} - Task Monitor".format(self._display_name)),
-			SPAN("Running since {}".format(self._init_dt)),
-			rerun_txt,
-			filter_input,
-			all_jobs_table,
-			SCRIPT(js_auto_reload_variables),
-			self.__js_src_wrap('taskmonitor.js')
+			[
+				self.__css_src_wrap('colors.css'),
+				self.__css_src_wrap('taskmonitor.css'),
+				container,
+				SCRIPT(js_auto_reload_variables),
+				self.__js_src_wrap('taskmonitor.js')
+			],
+			css='all-jobs-body'
 		)
 
 	def __show_one(self, n):
@@ -314,10 +325,13 @@ class TaskMonitor(object):
 		'''
 
 		return self.__html_wrap(
-			self.__css_src_wrap('taskmonitor.css'),
-			container,
-			SCRIPT(variables_script),
-			self.__js_src_wrap('task.js')
+			[
+				self.__css_src_wrap('colors.css'),
+				self.__css_src_wrap('taskmonitor.css'),
+				container,
+				SCRIPT(variables_script),
+				self.__js_src_wrap('task.js')
+			]
 		)
 
 

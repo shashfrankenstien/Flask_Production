@@ -1,6 +1,15 @@
 html {
+    --all-jobs-table: #3d3d3d;
+    --all-jobs-text: rgb(194, 194, 194);
+    --all-jobs-text-bright: rgb(230, 230, 230);
+    --all-jobs-table-hover: #4b4b4b;
+    --all-jobs-table-shadow: #222222;
+    --all-jobs-table-bg: rgb(43, 43, 43);
+    --all-jobs-table-button: #555555;
+
     --console-bg: #333333;
     --thumb-bg: grey;
+    --monitor-bg: white;
 }
 body {
     width:100%;
@@ -31,10 +40,66 @@ body {
 *::-webkit-scrollbar-corner {
     background-color: var(--console-bg) ;
 }
-th[role=columnheader]:not(.no-sort) { /*tablesort.css*/
+
+small, h2 { padding-top:10px;}
+table {
+    border-spacing: 0px;
+    border-collapse: collapse;
+    border: 1px solid #c2c2c2;
+    width: 90%;
+    margin-top: 20px;
+    margin-bottom: 40px;
+}
+
+
+td, th {
+    border: 1px solid #d1d1d1;
+    padding: 5px;
+}
+th {
+    height:2vh;
+    background-color:var(--console-bg);
+    color:white;
+    font-weight:bold !important;
+}
+
+.all-jobs-body,
+.all-jobs-body input {
+    background-color: var(--all-jobs-table-bg);
+    color: var(--all-jobs-text-bright);
+}
+
+
+.all-jobs {
+    border-collapse: separate;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+
+.all-jobs,
+.all-jobs button {
+    box-shadow: 2px 2px 3px var(--all-jobs-table-shadow);
+}
+
+.all-jobs,
+.all-jobs th {
+    background-color: var(--all-jobs-table);
+    border: 1px solid var(--all-jobs-table-bg);
+    color: var(--all-jobs-text);
+}
+.all-jobs th {
+    color: var(--all-jobs-text-bright);
+}
+
+.all-jobs td {
+    border: 1px solid var(--all-jobs-table-bg);
+}
+
+.all-jobs th[role=columnheader]:not(.no-sort) { /*tablesort.css*/
     cursor: pointer;
 }
-th[role=columnheader]:not(.no-sort):after { /*tablesort.css*/
+.all-jobs th[role=columnheader]:not(.no-sort):after { /*tablesort.css*/
     content: '';
     float: right;
     margin-top: 7px;
@@ -47,48 +112,26 @@ th[role=columnheader]:not(.no-sort):after { /*tablesort.css*/
     -moz-user-select: none;
     user-select: none;
 }
-th[aria-sort=ascending]:not(.no-sort):after { /*tablesort.css*/
+.all-jobs th[aria-sort=ascending]:not(.no-sort):after { /*tablesort.css*/
     border-width: 0 4px 4px;
 }
-th[aria-sort]:not(.no-sort):after { /*tablesort.css*/
+.all-jobs th[aria-sort]:not(.no-sort):after { /*tablesort.css*/
     visibility: visible;
 }
-small, h2 { padding-top:10px;}
-table {
-    border-spacing: 5px;
-    border-collapse: collapse;
-    border: 1px solid #c2c2c2;
-    width:85%;
-    margin-top:20px;
-    margin-bottom:40px;
+
+.all-jobs tr:hover {
+    background-color: var(--all-jobs-table-hover) !important;
 }
-tr:hover { background-color: #ededed; }
-td, th {
-    border: 1px solid #d1d1d1;
-    padding: 5px;
+
+
+.all-jobs tr.row-hidden { display:none; }
+
+.all-jobs button {
+  border: none;
+  background-color: var(--all-jobs-table-button);
+  color: var(--all-jobs-text);
 }
-th {
-    height:2vh;
-    background-color:var(--console-bg);
-    color:white;
-}
-td.grey {color:#c2c2c2;}
-td.yellow {background-color:yellow;}
-td.green {
-    background-color:#d2ffcc;
-    color:green;
-}
-td.red {
-    background-color:red;
-    color:white;
-    font-weight:bold;
-}
-td.blue {
-    background-color:blue;
-    color:white;
-    font-weight:bold;
-}
-tr.row-hidden { display:none; }
+
 a > button {
     width:100%;
     height:100%;
@@ -99,6 +142,9 @@ a > button {
     height:100%;
     display:flex;
     flex-direction:row;
+}
+.container-vertical {
+    flex-direction:column;
 }
 .center {
     justify-content:center;
@@ -116,6 +162,7 @@ a > button {
     display:flex;
     flex-flow: column;
     align-items:center;
+    background-color:var(--monitor-bg);
 }
 .monitor > div {
     flex: 1 1 auto;
@@ -132,11 +179,15 @@ a > button {
     width:50%;
     text-align:left;
 }
-td.title {
+.info_table td.title {
     font-weight:bold;
     text-align:right !important;
     padding-right:20px;
 }
+
+.info_table tr:hover { background-color: #ededed; }
+
+
 .logs_div {
     width: 70vw;
     height: 100vh;

@@ -1,0 +1,43 @@
+html {
+    --all-jobs-table: #3d3d3d;
+    --all-jobs-text: rgb(194, 194, 194);
+    --all-jobs-text-bright: rgb(230, 230, 230);
+    --all-jobs-table-hover: #4b4b4b;
+    --all-jobs-table-shadow: #222222;
+    --all-jobs-table-bg: rgb(43, 43, 43);
+    --all-jobs-table-button: #555555;
+
+    --console-bg: #333333;
+    --thumb-bg: grey;
+    --monitor-bg: white;
+}
+
+.grey,
+.yellow,
+.green,
+.red,
+.blue {
+    text-align: center;
+}
+
+.grey {
+    color:#646464 !important;
+}
+.yellow {
+    background-color:rgb(255, 255, 76) !important;
+    color:black !important;
+}
+.green {
+    background-color:#d2ffcc !important;
+    color:green !important;
+}
+.red {
+    background-color:rgb(255, 68, 68) !important;
+    color:white !important;
+    font-weight:bold !important;
+}
+.blue {
+    background-color:rgb(75, 75, 255) !important;
+    color:white !important;
+    font-weight:bold !important;
+}

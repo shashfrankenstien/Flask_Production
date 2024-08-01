@@ -2,92 +2,11 @@ import socket
 import requests
 # import json
 import psutil
+from flask import send_file
 
 from .html_templates import * # pylint: disable=unused-wildcard-import
 
 
-
-STYLES = '''
-<style>
-	body {
-		width:100%;
-		height:100%;
-		margin: 0;
-		display:flex;
-		flex-direction:column;
-		align-items:center;
-	}
-	.header-bar {
-		display:flex;
-		justify-content: center;
-		align-items:center;
-		position: sticky;
-		top: 0px;
-		width:100%;
-		margin-bottom: 10px;
-	}
-	.wrapper {
-		margin: 50px;
-		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: 30px;
-	}
-	.monitor-block {
-		width: 300px;
-		height: 120px;
-		border: thin solid lightgrey;
-		border-radius: 5px;
-		box-shadow: 2px 2px 4px #888888;
-		display:flex;
-		flex-direction:column;
-		justify-content: center;
-		align-items:center;
-		cursor:pointer;
-	}
-	.monitor-block:hover {
-		box-shadow: 5px 5px 5px #888888;
-	}
-	.error-border {
-		border: 2px solid #f53b3b;
-	}
-	.block-title {
-		flex: 2;
-		display:flex;
-		justify-content: center;
-		align-items:center;
-	}
-	.block-msg {
-		flex: 1;
-		display:flex;
-		flex-direction:row;
-		justify-content: flex-end;
-		align-items: center;
-		width:100%;
-		background-color: #eee;
-		font-size: 0.8rem;
-	}
-	.block-msg > div {
-		display:flex;
-		justify-content: center;
-		align-items: center;
-		padding: 2px;
-		margin: 5px;
-		width:25px;
-		height:25px;
-		background-color: white;
-		border-radius: 50%;
-	}
-	.error-msg {
-		background-color: #f53b3b !important;
-		border: none !important;
-		color: white;
-	}
-	.running-msg {
-		background-color: yellow !important;
-		border: none !important;
-	}
-</style>
-'''
 
 
 class ControlPanel:
@@ -106,6 +25,11 @@ class ControlPanel:
 		self.external_addrs = set(external_addrs)
 		self.page_refresh = page_refresh
 		self.app.add_url_rule("/", view_func=self._render_monitors, methods=['GET'])
+		self.app.add_url_rule("/static/<type>/<filename>", view_func=self.__serve_file, methods=['GET'])
+
+
+	def __serve_file(self, type, filename):
+		return send_file(os.path.join(WEB_FOLDER, type, filename))
 
 
 	def scan(self, min_port=1000, max_port=10000, timeout=5):
@@ -159,9 +83,9 @@ class ControlPanel:
 				running_msg_css = []
 				if mon['summary']['errors'] > 0:
 					css.append('error-border')
-					err_msg_css.append('error-msg')
+					err_msg_css.append('red')
 				if mon['summary']['running'] > 0:
-					running_msg_css.append('running-msg')
+					running_msg_css.append('yellow')
 
 				task_msg = f"tasks: {DIV(mon['summary']['count'])}"
 				running_msg = f"running: {DIV(mon['summary']['running'], css=running_msg_css)}"
@@ -200,7 +124,8 @@ class ControlPanel:
 		}});
 		'''.format(page_refresh=self.page_refresh))
 		return HTML(''.join([
-			STYLES,
+			STYLE_LINK(f'/static/css/colors.css'),
+			STYLE_LINK(f'/static/css/ctrl_panel.css'),
 			header,
 			summary_txt,
 			rerun_txt,
