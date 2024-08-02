@@ -251,7 +251,7 @@ class TaskMonitor(object):
 
 		return self.__html_wrap(
 			[
-				self.__css_src_wrap('colors.css'),
+				self.__css_src_wrap('dark_theme.css'),
 				self.__css_src_wrap('taskmonitor.css'),
 				container,
 				SCRIPT(js_auto_reload_variables),
@@ -326,7 +326,7 @@ class TaskMonitor(object):
 
 		return self.__html_wrap(
 			[
-				self.__css_src_wrap('colors.css'),
+				self.__css_src_wrap('dark_theme.css'),
 				self.__css_src_wrap('taskmonitor.css'),
 				container,
 				SCRIPT(variables_script),

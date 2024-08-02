@@ -1,15 +1,15 @@
 html {
-    --all-jobs-table: #3d3d3d;
-    --all-jobs-text: rgb(194, 194, 194);
-    --all-jobs-text-bright: rgb(230, 230, 230);
-    --all-jobs-table-hover: #4b4b4b;
-    --all-jobs-table-shadow: #222222;
-    --all-jobs-table-bg: rgb(43, 43, 43);
-    --all-jobs-table-button: #555555;
+    --theme-table: #3d3d3d;
+    --theme-text: rgb(194, 194, 194);
+    --theme-text-bright: rgb(230, 230, 230);
+    --theme-table-hover: #4b4b4b;
+    --theme-table-shadow: #222222;
+    --theme-table-bg: rgb(43, 43, 43);
+    --theme-table-button: #555555;
 
-    --console-bg: #333333;
+    --theme-logs-bg: #333333;
     --thumb-bg: grey;
-    --monitor-bg: white;
+    --theme-monitor-info-bg: white;
 }
 
 .grey,

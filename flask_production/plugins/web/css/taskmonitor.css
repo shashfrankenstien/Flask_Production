@@ -1,16 +1,3 @@
-html {
-    --all-jobs-table: #3d3d3d;
-    --all-jobs-text: rgb(194, 194, 194);
-    --all-jobs-text-bright: rgb(230, 230, 230);
-    --all-jobs-table-hover: #4b4b4b;
-    --all-jobs-table-shadow: #222222;
-    --all-jobs-table-bg: rgb(43, 43, 43);
-    --all-jobs-table-button: #555555;
-
-    --console-bg: #333333;
-    --thumb-bg: grey;
-    --monitor-bg: white;
-}
 body {
     width:100%;
     height:100%;
@@ -27,46 +14,37 @@ body {
 }
 * {
     scrollbar-width: thin;
-    scrollbar-color: var(--thumb-bg) var(--console-bg);
+    scrollbar-color: var(--thumb-bg) var(--theme-logs-bg);
 }
 *::-webkit-scrollbar-track {
-    background: var(--console-bg);
+    background: var(--theme-logs-bg);
 }
 *::-webkit-scrollbar-thumb {
     background-color: var(--thumb-bg) ;
     border-radius: 6px;
-    border: 3px solid var(--console-bg);
+    border: 3px solid var(--theme-logs-bg);
 }
 *::-webkit-scrollbar-corner {
-    background-color: var(--console-bg) ;
+    background-color: var(--theme-logs-bg) ;
 }
 
 small, h2 { padding-top:10px;}
 table {
     border-spacing: 0px;
     border-collapse: collapse;
-    border: 1px solid #c2c2c2;
     width: 90%;
     margin-top: 20px;
     margin-bottom: 40px;
 }
 
-
 td, th {
-    border: 1px solid #d1d1d1;
     padding: 5px;
-}
-th {
-    height:2vh;
-    background-color:var(--console-bg);
-    color:white;
-    font-weight:bold !important;
 }
 
 .all-jobs-body,
 .all-jobs-body input {
-    background-color: var(--all-jobs-table-bg);
-    color: var(--all-jobs-text-bright);
+    background-color: var(--theme-table-bg);
+    color: var(--theme-text-bright);
 }
 
 
@@ -79,21 +57,21 @@ th {
 
 .all-jobs,
 .all-jobs button {
-    box-shadow: 2px 2px 3px var(--all-jobs-table-shadow);
+    box-shadow: 2px 2px 3px var(--theme-table-shadow);
 }
 
 .all-jobs,
 .all-jobs th {
-    background-color: var(--all-jobs-table);
-    border: 1px solid var(--all-jobs-table-bg);
-    color: var(--all-jobs-text);
+    background-color: var(--theme-table);
+    border-color: var(--theme-table-bg);
+    color: var(--theme-text);
 }
 .all-jobs th {
-    color: var(--all-jobs-text-bright);
+    color: var(--theme-text-bright);
 }
 
 .all-jobs td {
-    border: 1px solid var(--all-jobs-table-bg);
+    border: 1px solid var(--theme-table-bg);
 }
 
 .all-jobs th[role=columnheader]:not(.no-sort) { /*tablesort.css*/
@@ -105,7 +83,7 @@ th {
     margin-top: 7px;
     border-width: 4px 4px 0;
     border-style: solid;
-    border-color: #e3e3e3 transparent;
+    border-color: var(--theme-text-bright) transparent;
     visibility: hidden;
     -ms-user-select: none;
     -webkit-user-select: none;
@@ -120,7 +98,7 @@ th {
 }
 
 .all-jobs tr:hover {
-    background-color: var(--all-jobs-table-hover) !important;
+    background-color: var(--theme-table-hover) !important;
 }
 
 
@@ -128,8 +106,8 @@ th {
 
 .all-jobs button {
   border: none;
-  background-color: var(--all-jobs-table-button);
-  color: var(--all-jobs-text);
+  background-color: var(--theme-table-button);
+  color: var(--theme-text);
 }
 
 a > button {
@@ -162,7 +140,7 @@ a > button {
     display:flex;
     flex-flow: column;
     align-items:center;
-    background-color:var(--monitor-bg);
+    background-color:var(--theme-monitor-info-bg);
 }
 .monitor > div {
     flex: 1 1 auto;
@@ -185,7 +163,9 @@ a > button {
     padding-right:20px;
 }
 
-.info_table tr:hover { background-color: #ededed; }
+.info_table tr:hover {
+    background-color: var(--theme-table-hover);
+}
 
 
 .logs_div {
@@ -204,27 +184,27 @@ a > button {
     overflow:hidden;
 }
 .log_table td, .log_table th {
-    border:none;
+    border: none;
     border-left: 1px solid grey;
     vertical-align: top;
-    overflow:hidden;
+    overflow: hidden;
+    background-color:var(--theme-logs-bg);
+    color: white;
 }
 .console-div {
     width:100%;
-    top:0px;
-    bottom:0px;
     height:95vh;
     overflow:scroll;
     white-space: nowrap;
     list-style-type: none;
     font-size: 13px;
-    padding-left: 5px;
 }
 .console-color {
-    background-color:var(--console-bg);
+    background-color:var(--theme-logs-bg);
     color:white;
 }
 .brdr {border: 1px solid grey;}
+
 pre, code {
     background-color:transparent !important;
     overflow:visible !important;
@@ -233,7 +213,7 @@ input[type=text] {
     width: 250px;
     padding: 6px 15px;
     margin: 8px 0;
-    border: 1px solid #999;
+    border: 1px solid var(--theme-text);
     border-radius: 3px;
     outline: none;
 }
