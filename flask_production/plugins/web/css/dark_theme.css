@@ -1,15 +1,15 @@
 html {
+    --theme-bg: rgb(43, 43, 43);
     --theme-table: #3d3d3d;
     --theme-text: rgb(194, 194, 194);
     --theme-text-bright: rgb(230, 230, 230);
     --theme-table-hover: #4b4b4b;
     --theme-table-shadow: #222222;
-    --theme-table-bg: rgb(43, 43, 43);
     --theme-table-button: #555555;
 
     --theme-logs-bg: #333333;
+    --theme-logs-brdr: grey;
     --thumb-bg: grey;
-    --theme-monitor-info-bg: white;
 }
 
 .grey,

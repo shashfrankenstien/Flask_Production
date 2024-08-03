@@ -256,8 +256,7 @@ class TaskMonitor(object):
 				container,
 				SCRIPT(js_auto_reload_variables),
 				self.__js_src_wrap('taskmonitor.js')
-			],
-			css='all-jobs-body'
+			]
 		)
 
 	def __show_one(self, n):
@@ -269,13 +268,21 @@ class TaskMonitor(object):
 		state = self.__state(jobd)
 		job_funcname = jobd['func'].replace('<', '&lt;').replace('>', '&gt;')
 
-		enable_disable_btn = '''<button class="btn enable-disable-btn" onclick="enable_disable('{name}', {jobid}, {job_disable})" {btn_disabled}>{btn_name}</button>'''.format(
+		enable_disable_btn = '''<button class="btn enable-disable-btn"
+									onclick="enable_disable('{name}', {jobid}, {job_disable})"
+									{btn_disabled}>
+								{btn_name}
+								</button>'''.format(
 			name=job_funcname, jobid=n,
 			job_disable="true" if not jobd['is_disabled'] else "false",
 			btn_disabled="disabled" if state['state']=="RUNNING" else "",
 			btn_name="Disable" if not jobd['is_disabled'] else "Enable",
 		)
-		rerun_btn = '''<button class="btn rerun-btn" onclick="rerun_trigger('{name}', {jobid})" {btn_disabled}>Rerun</button>'''.format(
+		rerun_btn = '''<button class="btn rerun-btn"
+							onclick="rerun_trigger('{name}', {jobid})"
+							{btn_disabled}>
+						Rerun
+						</button>'''.format(
 			name=job_funcname, jobid=n, # rerun_trigger params
 			btn_disabled="disabled" if state['state']=="RUNNING" or jobd['is_disabled'] else ""
 		)
@@ -285,9 +292,9 @@ class TaskMonitor(object):
 			TR([ titleTD("Start Time"), TD(self.__date_fmt(jobd['logs']['start'])) ]),
 			TR([ titleTD("End Time"), TD(self.__date_fmt(jobd['logs']['end'])) ]),
 			TR([ titleTD("Time Taken"), TD(self.__duration(jobd)) ]),
-			TR([ titleTD("Next Run In"), "<td id='next-run-in'>-<td>" ]),
-			TR([ TD(enable_disable_btn, colspan=2, attrs={'style':'text-align:center'}) ]) if self._can_disable else '',
-			TR([ TD(rerun_btn, colspan=2, attrs={'style':'text-align:center'}) ]) if self._can_rerun else ''
+			TR([ titleTD("Next Run In"), TD("-", attrs={'id':'next-run-in'}) ]),
+			TR([ TD(enable_disable_btn, colspan=2, css=['monitor-btn']) ]) if self._can_disable else '',
+			TR([ TD(rerun_btn, colspan=2, css=['monitor-btn']) ]) if self._can_rerun else ''
 		]
 
 		info_table = TABLE(tbody=TBODY(rows), css='info_table')
