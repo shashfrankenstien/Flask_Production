@@ -79,19 +79,14 @@ class ControlPanel:
 				attrs['title'] = monitor['error']
 			else:
 				mon = monitor['success']
-				err_msg_css = []
-				running_msg_css = []
-				if mon['summary']['errors'] > 0:
+
+				msg = f"tasks: {DIV(mon['summary']['count'])}"
+				if mon['summary'].get('running') or 0 > 0:
+					msg += f"  running: {DIV(mon['summary']['running'], css=['yellow'])}"
+				if mon['summary'].get('error') or 0 > 0:
 					css.append('error-border')
-					err_msg_css.append('red')
-				if mon['summary']['running'] > 0:
-					running_msg_css.append('yellow')
+					msg += f"  errors: {DIV(mon['summary']['errors'], css=['red'])}"
 
-				task_msg = f"tasks: {DIV(mon['summary']['count'])}"
-				running_msg = f"running: {DIV(mon['summary']['running'], css=running_msg_css)}"
-				error_msg = f"errors: {DIV(mon['summary']['errors'], css=err_msg_css)}"
-
-				msg = f"{task_msg}  {running_msg}  {error_msg}"
 				elem = SPAN(B(mon['name']), css=['block-title']) + SPAN(msg, css=['block-msg'])
 				attrs['data-url'] = monitor['url']
 				attrs['title'] = f"{mon['name']}\n{monitor['url']}"
