@@ -298,7 +298,7 @@ class TaskMonitor(object):
 		]
 
 		info_table = TABLE(tbody=TBODY(rows), css='info_table')
-		description_div = DIV( CODE(jobd['src'], css='python'), css=['console-color ', 'console-div', 'brdr'])
+		description_div = DIV( CODE(jobd['src'], css='python'), css=['console-color', 'console-div', 'brdr', 'monitor-code'])
 		title = H(2, job_funcname, attrs={'title': j.func_signature()})
 		monitor_div = DIV(
 			title + info_table + description_div,

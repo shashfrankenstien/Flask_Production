@@ -1,13 +1,14 @@
 html {
     --theme-bg: rgb(43, 43, 43);
     --theme-table: #3d3d3d;
-    --theme-text: rgb(194, 194, 194);
-    --theme-text-bright: rgb(230, 230, 230);
+    --theme-text: rgb(197, 197, 197);
+    --theme-text-bright: rgb(233, 233, 233);
     --theme-table-hover: #4b4b4b;
     --theme-table-shadow: #222222;
     --theme-table-button: #555555;
 
-    --theme-logs-bg: #333333;
+    --theme-code-bg: rgb(43, 43, 43);
+    --theme-logs-bg: rgb(43, 43, 43);
     --theme-logs-brdr: grey;
     --thumb-bg: grey;
 }
@@ -28,8 +29,8 @@ html {
     color:black !important;
 }
 .green {
-    background-color:#d2ffcc !important;
-    color:green !important;
+    background-color:#a9dda2 !important;
+    color:rgb(17, 104, 17) !important;
 }
 .red {
     background-color:rgb(255, 68, 68) !important;
@@ -40,4 +41,8 @@ html {
     background-color:rgb(75, 75, 255) !important;
     color:white !important;
     font-weight:bold !important;
+}
+
+.error-border {
+    border: 2px solid rgb(255, 68, 68) !important;
 }

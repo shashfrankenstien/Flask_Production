@@ -38,7 +38,9 @@ table {
     margin-top: 20px;
     margin-bottom: 40px;
 }
-
+tr:hover {
+    background-color: var(--theme-table-hover);
+}
 td, th {
     padding: 5px;
 }
@@ -127,11 +129,6 @@ input {
     visibility: visible;
 }
 
-.all-jobs tr:hover {
-    background-color: var(--theme-table-hover) !important;
-}
-
-
 .all-jobs tr.row-hidden {
     display:none;
 }
@@ -164,10 +161,11 @@ input {
     align-items:center;
     background-color:var(--theme-table);
 }
-.monitor > div {
+.monitor-code {
     flex: 1 1 auto;
     width:100%;
     overflow-wrap: break-word;
+    background-color:var(--theme-code-bg) !important;
 }
 
 .monitor-btn {
@@ -190,10 +188,6 @@ input {
     font-weight:bold;
     text-align:right !important;
     padding-right:20px;
-}
-
-.info_table tr:hover {
-    background-color: var(--theme-table-hover);
 }
 
 

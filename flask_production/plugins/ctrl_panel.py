@@ -79,14 +79,25 @@ class ControlPanel:
 				attrs['title'] = monitor['error']
 			else:
 				mon = monitor['success']
+				# for backward compatibility, apply defaults
+				if 'errors' not in mon['summary']:
+					mon['summary']['errors'] = 0
+				if 'running' not in mon['summary']:
+					mon['summary']['running'] = 0
 
-				msg = f"tasks: {DIV(mon['summary']['count'])}"
-				if mon['summary'].get('running') or 0 > 0:
-					msg += f"  running: {DIV(mon['summary']['running'], css=['yellow'])}"
-				if mon['summary'].get('error') or 0 > 0:
+				err_msg_css = []
+				running_msg_css = []
+				if mon['summary']['errors'] > 0:
 					css.append('error-border')
-					msg += f"  errors: {DIV(mon['summary']['errors'], css=['red'])}"
+					err_msg_css = ['red']
+				if mon['summary']['running'] > 0:
+					running_msg_css = ['yellow']
 
+				task_msg = f"tasks: {DIV(mon['summary']['count'])}"
+				running_msg = f"running: {DIV(mon['summary']['running'], css=running_msg_css)}"
+				error_msg = f"errors: {DIV(mon['summary']['errors'], css=err_msg_css)}"
+
+				msg = f"{task_msg}  {running_msg}  {error_msg}"
 				elem = SPAN(B(mon['name']), css=['block-title']) + SPAN(msg, css=['block-msg'])
 				attrs['data-url'] = monitor['url']
 				attrs['title'] = f"{mon['name']}\n{monitor['url']}"
@@ -99,31 +110,13 @@ class ControlPanel:
 		summary_txt = SMALL(f"Monitoring {tot_jobs} jobs")
 		rerun_txt = SMALL(f"Auto-refresh in {SPAN(self.page_refresh, attrs={'id': 'refresh-msg'})} seconds")
 
-		auto_reload = SCRIPT('''
-		let COUNT_DOWN = {page_refresh}
-		window.addEventListener('load', (event) => {{
-			const timer = setInterval(()=>{{
-				if (COUNT_DOWN > 0) {{
-					COUNT_DOWN --
-					document.getElementById('refresh-msg').innerText = COUNT_DOWN
-				}} else {{
-					clearInterval(timer)
-					location.reload()
-				}}
-			}}, 1000)
-			document.querySelectorAll('.monitor-block:not(.no-page)').forEach(block=>{{
-				block.addEventListener('click', ()=>{{
-					window.location.href=block.getAttribute("data-url")
-				}})
-			}})
-		}});
-		'''.format(page_refresh=self.page_refresh))
 		return HTML(''.join([
-			STYLE_LINK(f'/static/css/colors.css'),
-			STYLE_LINK(f'/static/css/ctrl_panel.css'),
+			STYLE_LINK('/static/css/dark_theme.css'),
+			STYLE_LINK('/static/css/ctrl_panel.css'),
 			header,
 			summary_txt,
 			rerun_txt,
 			wrapper,
-			auto_reload
+			SCRIPT(f'''let COUNT_DOWN = {self.page_refresh}'''),
+			SCRIPT_SRC('/static/js/ctrl_panel.js')
 		]), title=header_txt)

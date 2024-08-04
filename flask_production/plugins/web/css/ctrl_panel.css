@@ -39,9 +39,7 @@ body {
     /* box-shadow: 10px 10px 5px var(--theme-table-shadow); */
     background-color: var(--theme-table-hover);
 }
-.error-border {
-    border: 2px solid #f53b3b;
-}
+
 .block-title {
     flex: 2;
     display:flex;
@@ -67,5 +65,5 @@ body {
     width:25px;
     height:25px;
     border-radius: 50%;
-    background-color: var(--theme-bg);
+    background-color: var(--theme-table);
 }
