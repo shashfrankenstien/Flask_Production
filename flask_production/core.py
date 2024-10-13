@@ -16,7 +16,7 @@ class CherryFlask(object):
 			@app.after_request
 			def _teardown(response): # pylint: disable=unused-variable
 				pth = request.environ.get('PATH_INFO')
-				if "@" not in pth: # disable logging of endpoints like @taskmonitor
+				if "@" not in pth and 'favicon' not in pth: # disable logging of endpoints like @taskmonitor, favicon.ico
 					adr = request.environ.get('HTTP_X_REAL_IP', request.environ.get('REMOTE_ADDR'))
 					mth = request.environ.get('REQUEST_METHOD')
 					print(f'''{adr} - [{dt.now().strftime('%m/%d/%Y %H:%M:%S')}] - "{mth} {pth}" - {response.status_code}''')

@@ -82,7 +82,7 @@ class TaskMonitor(object):
 		return STYLE_LINK(f'/{self._endpoint}/static/css/{filename}')
 
 	def __serve_file(self, type, filename):
-		return send_file(os.path.join(WEB_FOLDER, type, filename))
+		return send_file(os.path.join(WEB_FOLDER, type, filename), cache_timeout=86400)
 
 	def __state(self, jdict):
 		state = {'state':'READY', 'css': 'grey', 'title': '' }
