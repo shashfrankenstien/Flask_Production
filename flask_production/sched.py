@@ -103,6 +103,9 @@ class TaskScheduler(object):
 		if persist_states:
 			self._state_handler = state_handler or FileSystemState()
 
+		# additional job classes
+		self._external_job_classes = []
+
 		# set schedule defaults
 		self.__reset_defaults()
 
@@ -113,6 +116,13 @@ class TaskScheduler(object):
 		self.tzname = self._tz_default # timezone default
 		self._strict_monthly = None
 		self.job_calendar = None
+
+
+	def register_external_job_class(self, jclass):
+		if not issubclass(jclass, Job):
+			raise ValueError("class must be inherited from 'Job' class")
+		self._external_job_classes.append(jclass)
+
 
 	# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 	# -=-=-=-=-=-=-=-=-= New job definition methods =-=-=-=-=-=-=-=-=-
@@ -131,12 +141,12 @@ class TaskScheduler(object):
 		'''alias of .every() method'''
 		return self.every(*args, **kwargs)
 
-	def strict_date(self, strict):
+	def strict_date(self, strict:bool):
 		'''
 		required to be called when scheduling MonthlyJob
 		- see MonthlyJob docstring
 		'''
-		if not MonthlyJob.is_valid_interval(self.interval) or not isinstance(strict, bool):
+		if not MonthlyJob.is_valid_interval(self.interval, time_string="00:00") or not isinstance(strict, bool):
 			raise BadScheduleError(".strict_date(bool) only used for monthly schedule. ex: .every('31st').strict_date(True)..")
 		self._strict_monthly = strict
 		return self
@@ -177,20 +187,32 @@ class TaskScheduler(object):
 		if self.interval is None:
 			raise Exception('Use .at()/.every().at() before .do()')
 		if self.temp_time is None:
-			self.temp_time = dt.now(tz.gettz(self._tz_default)).strftime("%H:%M") # FIXME: default timezone is fine?? Or not I guess
+			self.temp_time = dt.now(tz.gettz(self.tzname)).strftime("%H:%M")
 
 		new_jobid = len(self.jobs)
-		if RepeatJob.is_valid_interval(self.interval):
-			j = RepeatJob(new_jobid, self.interval, None, func, kwargs)
-		elif OneTimeJob.is_valid_interval(self.interval):
-			j = OneTimeJob(new_jobid, self.interval, self.temp_time, func, kwargs)
-		elif MonthlyJob.is_valid_interval(self.interval):
-			j = MonthlyJob(new_jobid, self.interval, self.temp_time, func, kwargs, strict_date=self._strict_monthly)
-		elif Job.is_valid_interval(self.interval):
-			j = Job(new_jobid, self.interval, self.temp_time, func, kwargs)
-		elif NeverJob.is_valid_interval(self.interval):
-			j = NeverJob(new_jobid, self.interval, self.temp_time, func, kwargs)
-		else:
+		j = None
+		for jcls in self._external_job_classes:
+			if jcls.is_valid_interval(self.interval, time_string=self.temp_time):
+				j = jcls(new_jobid, every=self.interval, at=self.temp_time, func=func, kwargs=kwargs)
+				break
+
+		if j is None:
+			if RepeatJob.is_valid_interval(self.interval, time_string=None):
+				j = RepeatJob(new_jobid, every=self.interval, at=None, func=func, kwargs=kwargs)
+
+			elif OneTimeJob.is_valid_interval(self.interval, time_string=self.temp_time):
+				j = OneTimeJob(new_jobid, every=self.interval, at=self.temp_time, func=func, kwargs=kwargs)
+
+			elif MonthlyJob.is_valid_interval(self.interval, time_string=self.temp_time):
+				j = MonthlyJob(new_jobid, every=self.interval, at=self.temp_time, func=func, kwargs=kwargs, strict_date=self._strict_monthly)
+
+			elif Job.is_valid_interval(self.interval, time_string=self.temp_time):
+				j = Job(new_jobid, every=self.interval, at=self.temp_time, func=func, kwargs=kwargs)
+
+			elif NeverJob.is_valid_interval(self.interval, time_string=None):
+				j = NeverJob(new_jobid, every=self.interval, at=None, func=func, kwargs=kwargs)
+
+		if j is None:
 			raise BadScheduleError("{} is not valid\n".format(self.interval))
 
 		j.init(
@@ -295,7 +317,7 @@ class TaskScheduler(object):
 				return j
 		return None
 
-	def rerun(self, jobid):
+	def rerun(self, jobid, kwargs: dict=None):
 		selected_job = self.get_job_by_id(jobid)
 		if selected_job is None:
 			raise IndexError("Invalid job id")
@@ -303,7 +325,7 @@ class TaskScheduler(object):
 			raise RuntimeError("Cannot rerun a running task")
 		if not isinstance(selected_job, AsyncJobWrapper):
 			selected_job = AsyncJobWrapper(selected_job)
-		selected_job.run(is_rerun=True)
+		selected_job.run(is_rerun=True, kwargs=kwargs)
 
 	def disable_all(self):
 		for j in self.jobs:

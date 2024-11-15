@@ -66,9 +66,9 @@ class Job(object):
 	'''standard job class'''
 
 	@classmethod
-	def is_valid_interval(cls, interval):
+	def is_valid_interval(cls, interval, time_string):
 		'''The generic Job class only supports these interval. See subclasses for others'''
-		return interval in RUNABLE_DAYS
+		return interval in RUNABLE_DAYS and time_string is not None
 
 	def __init__(self, jobid, every, at, func, kwargs):
 		if str(every) == 'holiday':
@@ -82,6 +82,7 @@ class Job(object):
 		self.func = func
 		self.kwargs = kwargs
 		self.is_running = False
+		self.next_timestamp = 0
 		self._is_disabled = False
 		self._run_silently = False
 		self._generic_err_handler = None
@@ -265,7 +266,8 @@ class Job(object):
 			self._job_signature_hash = hashlib.sha1(sig.encode()).hexdigest()
 		return self._job_signature_hash
 
-	def _run(self, is_rerun: bool):
+
+	def _run(self, is_rerun: bool, kwargs: dict=None):
 		'''this is an internal runner. see self.run() for more'''
 		self.is_running = True
 		try:
@@ -278,8 +280,18 @@ class Job(object):
 				print("Executing {}".format(self))
 				print("*") # job log seperator
 			start_time = time.time()
-			return self.func(**self.kwargs)
+
+			kw = self.kwargs.copy() # start with default kwargs
+			if isinstance(kwargs, dict):
+				# if kwargs provided, update
+				# however, job will fail if a key is provided that is not expected by the job
+				# TODO: should we remove bad arguments here, or let it fail?
+				kw.update(kwargs)
+
+			return self.func(**kw)
+
 		except Exception:
+			traceback.print_exc()
 			print("Job", self.func_signature(), "failed!")
 			err_msg = "Error in {}\n\n\n{}".format(self.func_signature(), traceback.format_exc())
 			self._run_info.set_error()
@@ -306,7 +318,7 @@ class Job(object):
 			self.is_running = False
 
 
-	def run(self, is_rerun: bool=False):
+	def run(self, is_rerun: bool=False, kwargs: dict=None):
 		'''
 		begin job run
 		- redirected all print statements to _PrintLogger
@@ -314,10 +326,7 @@ class Job(object):
 		- execute registered callback functions
 		'''
 		with self._run_info.start_capture(): # captures all writes to stdout
-			self._run(is_rerun=is_rerun)
-
-		if self._run_info.error: # print any errors outside of capture
-			print(self._run_info.error)
+			self._run(is_rerun=is_rerun, kwargs=kwargs)
 
 		for cb in self._on_complete_cbs: # call any registered on-complete callbacks
 			try:
@@ -368,7 +377,7 @@ class OneTimeJob(Job):
 	'''type of job that runs only once'''
 
 	@classmethod
-	def is_valid_interval(cls, interval):
+	def is_valid_interval(cls, interval, time_string):
 		try:
 			dt.strptime(interval, "%Y-%m-%d")
 			return True
@@ -395,8 +404,8 @@ class RepeatJob(Job):
 	'''type of job that runs every n seconds'''
 
 	@classmethod
-	def is_valid_interval(cls, interval):
-		return isinstance(interval, (int, float))
+	def is_valid_interval(cls, interval, time_string):
+		return isinstance(interval, (int, float)) and time_string is None
 
 	def schedule_next_run(self, just_ran=False):
 		if not isinstance(self.interval, (int, float)) or self.interval <= 0:
@@ -430,10 +439,10 @@ class MonthlyJob(Job):
 		super().__init__(jobid, every, at, func, kwargs)
 
 	@classmethod
-	def is_valid_interval(cls, interval):
-		# example intervals - 1st, 22nd, 30th
+	def is_valid_interval(cls, interval, time_string):
+		'''example intervals - 1st, 22nd, 30th'''
 		match = cls.PATTERN.match(str(interval))
-		return match is not None and int(match.groups()[0]) <= 31
+		return (match is not None and int(match.groups()[0]) <= 31) and time_string is not None
 
 	def schedule_next_run(self, just_ran=False):
 		interval = int(self.PATTERN.match(self.interval).groups()[0])
@@ -499,8 +508,8 @@ class NeverJob(Job):
 	'''type of job that runs only on demand (using TaskMonitor plugin)'''
 
 	@classmethod
-	def is_valid_interval(cls, interval):
-		return interval in ('on-demand', 'never')
+	def is_valid_interval(cls, interval, time_string):
+		return interval in ('on-demand', 'never') and time_string is None
 
 	def schedule_next_run(self, just_ran=False):
 		self.next_timestamp = 0

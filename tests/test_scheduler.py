@@ -432,20 +432,38 @@ def test_job_rerun():
 	assert(len(s.jobs) == 1)
 	time.sleep(0.5)
 	s.check() # will run here, and reschedule to next week
-	run_end = s.jobs[0].to_dict()['logs']['end']
+	j = s.jobs[0]
+	run_end = j.to_dict()['logs']['end']
 	# test if next run greater than 6 days from now
 	test_timestamp = time.time()
-	assert(s.jobs[0].next_timestamp > test_timestamp+(6*24*60*60))
+	assert(j.next_timestamp > test_timestamp+(6*24*60*60)) # assert that next scheduled job happens after a week
 	time.sleep(1)
 
 	# rerun the job
-	prev_resched_timestamp = s.jobs[0].next_timestamp
-	s.rerun(s.jobs[0].jobid)
+	prev_resched_timestamp = j.next_timestamp
+	s.rerun(j.jobid)
 	time.sleep(1)
-	rerun_end = s.jobs[0].to_dict()['logs']['end']
+	rerun_end = j.to_dict()['logs']['end']
 	assert(run_end != rerun_end)
 	# rerun should not reschedule the job
-	assert(s.jobs[0].next_timestamp == prev_resched_timestamp)
+	assert(j.next_timestamp == prev_resched_timestamp)
+	assert(f"hello {today_str}" in j._run_info.log)
+
+	# rerun the job with different args [8/5/2024]
+	s.rerun(j.jobid, kwargs={'y': 'potato'})
+	time.sleep(1)
+	assert('potato' in j._run_info.log)
+	assert(f"hello {today_str}" not in j._run_info.log) # This does not exist because today_str was overridden with 'potato'
+
+	s.rerun(j.jobid, kwargs={'y': 'potato', 'z': 'nonsense'})
+	time.sleep(1)
+	assert("unexpected keyword argument 'z'" in j._run_info.error)
+
+	s.rerun(j.jobid)
+	time.sleep(1)
+	assert('potato' not in j._run_info.log)
+	assert(f"hello {today_str}" in j._run_info.log)
+
 
 
 
