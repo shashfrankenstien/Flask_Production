@@ -9,6 +9,7 @@ from dateutil import tz
 import pytest
 
 from flask_production import TaskScheduler
+from flask_production.jobs import Job
 from flask_production.hols import TradingHolidays
 from flask_production.sched import LOGGER, BadScheduleError
 from flask_production.state import FileSystemState, SQLAlchemyState
@@ -695,3 +696,31 @@ def test_run_script(script_dir):
 	assert('warning' in j._run_info.log) # test warning
 	assert('--test_arg' in j._run_info.log) # test script arguments
 	assert('Done' in j._run_info.log) # just the last thing - test it anyway
+
+
+
+def test_external_job_class():
+
+	class OnePMJob(Job):
+
+		@classmethod
+		def is_valid_interval(cls, interval, time_string):
+			# sending dummy time_string="00:00" to Job.is_valid_interval because it can't be None
+			return interval=='1pm'
+
+		def schedule_next_run(self, *args, **kwargs):
+			d = dt.now().replace(hour=13, minute=0, second=0, microsecond=0)
+			if d < dt.now():
+				d = d + timedelta(days=1)
+
+			self.next_timestamp = d.timestamp()
+
+	s = TaskScheduler()
+
+	with pytest.raises(BadScheduleError): # this fails if a BadScheduleError is not raised
+		s.every('1pm').do(job)
+
+	s.register_external_job_class(OnePMJob)
+	j = s.every('1pm').do(job)
+
+	assert(dt.fromtimestamp(j.next_timestamp).hour == 13)
