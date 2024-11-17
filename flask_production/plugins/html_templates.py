@@ -17,10 +17,10 @@ def HTML(content, title, css=[]):
 	return _readTemplate(os.path.join(WEB_FOLDER, 'index.html'), title=title, body=str(content), body_css=' '.join(css))
 
 def _TAG(tag, content, css, attrs):
-	attrs = ["{}='{}'".format(k,v) for k,v in attrs.items()]
+	attrs = ['''{}="{}"'''.format(k,v) for k,v in attrs.items()]
 	if not isinstance(css, (list,set,tuple)):
 		css = [css]
-	attrs.append("class='{}'".format(' '.join(css)))
+	attrs.append('''class="{}"'''.format(' '.join(css)))
 	return "<{t} {a}>{c}</{t}>".format(t=tag, a=' '.join(attrs), c=content)
 
 def H(index, content, css=[], attrs={}):
@@ -68,7 +68,7 @@ def INPUT(content, css=[], attrs={}):
 def CODE(s, css=[]):
 	if not isinstance(css, (list,set,tuple)):
 		css = [css]
-	return "<pre><code class='{}'>{}</code></pre>".format(' '.join(css), s)
+	return '''<pre><code class="{}">{}</code></pre>'''.format(' '.join(css), s)
 
 def SCRIPT(s):
 	return "<script>{}</script>".format(s)

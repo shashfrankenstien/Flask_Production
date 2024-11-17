@@ -121,21 +121,37 @@ class TaskMonitor(object):
 		d = dt.strptime(dt.now().strftime("%Y-%m-%d "+ str(tstr)), "%Y-%m-%d %H:%M")
 		return d.strftime("%I:%M%p")
 
-	def __schedule_str(self, jdict):
+
+	def __scheduleTD(self, jdict):
+		tz_str = ''
+		if isinstance(jdict['tzname'], str):
+			tz_str = dt.now(tz.gettz(jdict['tzname'])).strftime("[%Z]")
+
 		if isinstance(jdict['every'], int): # jdict['type']=='RepeatJob'
-			out = "every {} seconds".format(jdict['every'])
+			out = "every {} seconds {}".format(jdict['every'], tz_str)
+			return TD(out.strip())
+
 		elif jdict['type']=='OneTimeJob':
-			out = "on {} at {}".format(jdict['every'], jdict['at'])
+			out = "on {} at {} {}".format(jdict['every'], jdict['at'], tz_str)
+			return TD(out.strip())
+
 		elif jdict['type']=='NeverJob':
 			out = 'on-demand'
-		elif isinstance(jdict['at'], (list,set,tuple)):
-			out = "every {} at {}".format(jdict['every'], ', '.join(jdict['at']))
-		else:
-			out = "every {} at {}".format(jdict['every'], jdict['at'])
+			return TD(out)
 
-		if isinstance(jdict['tzname'], str):
-			out += " " + dt.now(tz.gettz(jdict['tzname'])).strftime("[%Z]")
-		return out
+		elif isinstance(jdict['at'], (list,set,tuple)):
+			full_str = "every {} at {} {}".format(jdict['every'], ', '.join(jdict['at']), tz_str)
+
+			if len(jdict['at']) >= 5:
+				at_str = ', '.join(jdict['at'][:3]) + ', ...' + jdict['at'][-1]
+				out = "every {} at {} {}".format(jdict['every'], at_str, tz_str)
+				return TD(out.strip(), attrs={'title': full_str.strip()})
+			else:
+				return TD(full_str.strip())
+		else:
+			out = "every {} at {} {}".format(jdict['every'], jdict['at'], tz_str)
+			return TD(out.strip())
+
 
 	def __date_fmt(self, d):
 		fallback = '-'+('&nbsp;'*30) # a hiphen and some html spaces
@@ -148,10 +164,7 @@ class TaskMonitor(object):
 		if d is None: return TD('-')
 		d = d.strip()
 		short_d = d[:30] + "..."
-		return '<td title="{}">{}</td>'.format(
-			d,
-			short_d if len(d)>30 else d
-		)
+		return TD(short_d if len(d)>30 else d, attrs={'title': d})
 
 	def __src_err_line(self, j):
 		if j['logs']['err'].strip()!='':
@@ -221,7 +234,7 @@ class TaskMonitor(object):
 			d.append(OrderedDict({
 				'Id': TD(jd['jobid']),
 				'Name': TD(jd['func'].replace('<', '&lt;').replace('>', '&gt;'), attrs={'title':j.func_signature()}),
-				'Schedule': TD(self.__schedule_str(jd)),
+				'Schedule': self.__scheduleTD(jd),
 				'Description': self.__descrTD(jd['doc']),
 				'State': TD(state['state'], css=state['css'], attrs={'title': state['title']}),
 				'Start': TD(self.__date_fmt(start_dt), attrs=self.__date_sort_attr(start_dt)),
@@ -287,7 +300,7 @@ class TaskMonitor(object):
 			btn_disabled="disabled" if state['state']=="RUNNING" or jobd['is_disabled'] else ""
 		)
 		rows = [
-			TR([ titleTD("Schedule"), TD(self.__schedule_str(jobd)), ]),
+			TR([ titleTD("Schedule"), self.__scheduleTD(jobd), ]),
 			TR([ titleTD("State"), TD(state['state'], css=state['css']) ]),
 			TR([ titleTD("Start Time"), TD(self.__date_fmt(jobd['logs']['start'])) ]),
 			TR([ titleTD("End Time"), TD(self.__date_fmt(jobd['logs']['end'])) ]),
