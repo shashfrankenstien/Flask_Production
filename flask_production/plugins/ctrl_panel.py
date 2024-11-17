@@ -43,7 +43,13 @@ class ControlPanel:
 
 	def _get_taskmonitor(self, host, port, timeout=5):
 		try:
-			monitor_url = f"http://{host}:{port}/@taskmonitor" # need to add option to change this endpoint since task monitor has that option
+			if port == 80:
+				monitor_url = f"http://{host}/@taskmonitor" # need to add option to change this endpoint since task monitor has that option
+			elif port == 443:
+				monitor_url = f"https://{host}/@taskmonitor" # need to add option to change this endpoint since task monitor has that option
+			else:
+				monitor_url = f"http://{host}:{port}/@taskmonitor" # need to add option to change this endpoint since task monitor has that option
+
 			res = requests.get(f"{monitor_url}/json/summary", timeout=timeout).json()
 			# print(json.dumps(res, indent=4))
 			res['port'] = port
