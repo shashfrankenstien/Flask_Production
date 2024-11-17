@@ -639,6 +639,8 @@ def script_dir():
 
 def test_run_script(script_dir):
 	# basic test setup
+	wd = os.getcwd()
+
 	script_name = "testscript.py"
 	failing_script_name = "testscript_failing.py"
 	import_name = "import_me"
@@ -697,6 +699,7 @@ def test_run_script(script_dir):
 	assert('--test_arg' in j._run_info.log) # test script arguments
 	assert('Done' in j._run_info.log) # just the last thing - test it anyway
 
+	assert(wd == os.getcwd())
 
 
 def test_external_job_class():

@@ -33,11 +33,10 @@ class ScriptFunc(ModuleType):
 
         self.__doc__ = f"Script called '{self.script_name}' defined in '{self.script_dir_path}'"
 
-
+        self.__wd = os.getcwd() # capture working directory to change back to once script is complete
 
 
     def __call__(self):
-        wd = os.getcwd()
         os.chdir(self.script_dir_path)
         cmd = [sys.executable, "-u", self.__file__] + self.script_args
 
@@ -59,5 +58,5 @@ class ScriptFunc(ModuleType):
             p.wait()
 
         finally:
-            os.chdir(wd)
+            os.chdir(self.__wd)
 
