@@ -1,6 +1,6 @@
 import holidays
 from datetime import date
-from dateutil.relativedelta import relativedelta, MO, FR
+from dateutil.relativedelta import relativedelta, MO#, FR
 # from dateutil.easter import easter
 
 
@@ -9,7 +9,12 @@ class TradingHolidays(holidays.countries.UnitedStates):
 		# Populate the holiday list with the default US holidays
 		holidays.UnitedStates._populate(self, year)
 		# Remove Columbus Day
-		self.pop(date(year, 10, 1) + relativedelta(weekday=MO(+2)), None)
+		# Edit: in holidays==0.61, Columbus day was removed as a US countrywide holiday
+		# 	- https://github.com/vacanza/holidays/pull/2106
+		columbus_day = date(year, 10, 1) + relativedelta(weekday=MO(+2))
+		if columbus_day in self:
+			self.pop(columbus_day, None)
+
 		# Remove Veterans Day
 		self.pop(date(year, 11, 11), None)
 		if year==2023:

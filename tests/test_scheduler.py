@@ -100,13 +100,13 @@ def test_holidays():
 	s = TaskScheduler() # default holidays calendar
 	s.every("businessday").at("10:00").do(job, x="hello", y="world")
 	assert(s.jobs[0]._job_must_run_today(date_parse("2020-04-09"))==True)
-	assert(s.jobs[0]._job_must_run_today(date_parse("2020-10-12"))==False) # Columbus Day is a US holiday by default
+	assert(s.jobs[0]._job_must_run_today(date_parse("2024-11-11"))==False) # Veterans Day is a US holiday
 
 	s = TaskScheduler(holidays_calendar=TradingHolidays())
 	s.every("businessday").at("10:00").do(job, x="hello", y="world")
 	assert(s.jobs[0]._job_must_run_today(date_parse("2020-04-09"))==True)
 	assert(s.jobs[0]._job_must_run_today(date_parse("2020-04-11"))==False) # saturday
-	assert(s.jobs[0]._job_must_run_today(date_parse("2020-10-12"))==True) # test Custom calendar with Columbus Day removed
+	assert(s.jobs[0]._job_must_run_today(date_parse("2024-11-11"))==True) # test Custom financial calendar with Veterans Day removed
 
 	s.every("trading-holiday").at("10:00").do(job, x="hello", y="world")
 	assert(s.jobs[1]._job_must_run_today(date_parse("2020-01-01"))==True)
