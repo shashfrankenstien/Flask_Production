@@ -9,6 +9,7 @@ class SQLAlchemyState(BaseStateHandler):
 	def __init__(self, uri) -> None:
 		super().__init__()
 		self.uri = uri
+		self._validate_uri()
 		self.__tables_created = False
 
 		try: # make sure required packages are installed
@@ -20,6 +21,25 @@ class SQLAlchemyState(BaseStateHandler):
 			print(msg)
 			print("=="*25)
 			raise ImportError(msg)
+
+
+	def _validate_uri(self):
+		from sqlalchemy.engine.url import make_url
+		url_validation = make_url(self.uri)
+
+		if url_validation.drivername is None:
+			raise ValueError("Invalid sqlalchemy URL. driver name missing")
+
+		if url_validation.drivername != 'sqlite': # sqlite does not have the below
+			if url_validation.host is None:
+				raise ValueError("Invalid sqlalchemy URL. host name missing")
+
+			if url_validation.username is None or url_validation.password is None:
+				raise ValueError("Invalid sqlalchemy URL. credentials missing")
+
+		if url_validation.database is None:
+			raise ValueError("Invalid sqlalchemy URL. database name missing")
+
 
 	def _ensure_create_table(self):
 		if self.__tables_created is True:
@@ -135,3 +155,5 @@ class SQLAlchemyState(BaseStateHandler):
 				if sig not in found_states:
 					conn.execute(delete(self.fp_state).where(self.fp_state.c.signature == sig))
 			conn.commit()
+
+		print("* scheduler state restored from database *")

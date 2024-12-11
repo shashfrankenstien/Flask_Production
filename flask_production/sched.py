@@ -280,6 +280,8 @@ class TaskScheduler(object):
 			if isinstance(self._state_handler, BaseStateHandler):
 				self._state_handler.restore_all_job_logs(self.jobs)
 		except Exception as e:
+			# import traceback
+			# traceback.print_exc()
 			print("unable to restore states:", str(e))
 
 

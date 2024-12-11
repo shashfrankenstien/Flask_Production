@@ -70,3 +70,5 @@ class FileSystemState(BaseStateHandler):
 			for f in os.listdir(self._job_state_dir):
 				if f not in found_states:
 					os.remove(os.path.join(self._job_state_dir, f))
+
+			print("* scheduler state restored from filesystem *")
