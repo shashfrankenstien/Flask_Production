@@ -72,15 +72,15 @@ class TaskMonitor(object):
 		if not _favicon_is_set:
 			self.app.add_url_rule("/favicon.ico", view_func=lambda: self.__serve_file('ico', 'flask_boiler.ico'), methods=['GET'])
 
-
-	def __html_wrap(self, elems, css=[]):
-		return HTML(''.join(elems), title="{} Task Monitor".format(self._display_name), css=css)
+	@property
+	def title(self):
+		return "{} Task Monitor".format(self._display_name)
 
 	def __js_src_wrap(self, filename):
 		return SCRIPT_SRC(f'/{self._endpoint}/static/js/{filename}')
 
 	def __css_src_wrap(self, filename):
-		return STYLE_LINK(f'/{self._endpoint}/static/css/{filename}')
+		return STYLESHEET(f'/{self._endpoint}/static/css/{filename}')
 
 	def __serve_file(self, type, filename):
 		if 'max_age' in inspect.getfullargspec(send_file).args:
@@ -274,10 +274,13 @@ class TaskMonitor(object):
 			css=["container", "container-vertical", 'center']
 		)
 
-		return self.__html_wrap(
-			[
+		return HTML(
+			title=self.title,
+			stylesheets=[
 				self.__css_src_wrap('dark_theme.css'),
 				self.__css_src_wrap('taskmonitor.css'),
+			],
+			body=[
 				container,
 				SCRIPT(js_auto_reload_variables),
 				self.__js_src_wrap('taskmonitor.js')
@@ -356,10 +359,13 @@ class TaskMonitor(object):
 		let API_TOKEN = '{self._api_protection_token}';
 		'''
 
-		return self.__html_wrap(
-			[
+		return HTML(
+			title=self.title,
+			stylesheets=[
 				self.__css_src_wrap('dark_theme.css'),
 				self.__css_src_wrap('taskmonitor.css'),
+			],
+			body=[
 				container,
 				SCRIPT(variables_script),
 				self.__js_src_wrap('task.js')

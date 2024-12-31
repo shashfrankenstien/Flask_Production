@@ -11,10 +11,15 @@ def _readTemplate(fileName, **kwargs):
 	return templateText
 
 
-def HTML(content, title, css=[]):
-	if not isinstance(css, (list,set,tuple)):
-		css = [css]
-	return _readTemplate(os.path.join(WEB_FOLDER, 'index.html'), title=title, body=str(content), body_css=' '.join(css))
+def HTML(title:str, stylesheets:list, body:list, body_css:list=[]):
+	if not isinstance(body_css, (list,set,tuple)):
+		body_css = [body_css]
+	return _readTemplate(os.path.join(WEB_FOLDER, 'index.html'),
+		title=title,
+		stylesheets='\n'.join(stylesheets),
+		body='\n'.join(body),
+		body_css=' '.join(body_css)
+	)
 
 def _TAG(tag, content, css, attrs):
 	attrs = ['''{}="{}"'''.format(k,v) for k,v in attrs.items()]
@@ -77,5 +82,5 @@ def SCRIPT(s):
 def SCRIPT_SRC(url):
 	return '<script src="{}"></script>'.format(url)
 
-def STYLE_LINK(url):
+def STYLESHEET(url):
 	return '<link rel="stylesheet" href="{}">'.format(url)
