@@ -11,6 +11,7 @@ function countdown_str(seconds) {
     seconds -= minutes * 60
     return `${hours.pad()}:${minutes.pad()}:${Math.floor(seconds).pad()}`
 }
+
 function rerun_trigger(job_name, jobid) {
     const input_txt = prompt("Please type in the job name to confirm rerun", "");
     console.log(jobid)
@@ -30,6 +31,7 @@ function rerun_trigger(job_name, jobid) {
         alert("Rerun aborted")
     }
 }
+
 function enable_disable(job_name, jobid, disable) {
     const prompt_txt = "Please type in the job name to confirm " + ((disable) ? "disable": "enable")
     const input_txt = prompt(prompt_txt, "");
@@ -50,6 +52,7 @@ function enable_disable(job_name, jobid, disable) {
         alert("Action aborted")
     }
 }
+
 window.addEventListener('load', (event) => {
     //scroll to bottom
     document.getElementsByClassName("log_table")[0].querySelectorAll("div").forEach(d=>d.scrollTo(0,d.scrollHeight))
