@@ -3,7 +3,7 @@ flask-production
 
 Cherrypy prod server for Flask + parallel task scheduler
 
-|Python 3.7| |license| |pytest|
+|Python 3.8| |license| |pytest|
 
 Installation
 ---------------------
