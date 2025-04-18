@@ -17,6 +17,10 @@ dist:
 	python3 -m build .
 
 
+check: dist
+	twine check dist/*
+
+
 clean:
 	rm -rf build
 	rm -rf dist
@@ -27,4 +31,4 @@ deploy: dist
 	twine upload --verbose -r pypi dist/*
 
 
-.PHONY: test install uninstall clean deploy
+.PHONY: test install uninstall dist clean check deploy
