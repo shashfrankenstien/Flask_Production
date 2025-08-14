@@ -482,7 +482,7 @@ class MonthlyJob(Job):
 class AsyncJobWrapper(object):
 	'''wrapper to run the job on a parallel thread'''
 
-	def __init__(self, job):
+	def __init__(self, job:Job):
 		self.job = job
 		self.proc = None
 
@@ -497,11 +497,20 @@ class AsyncJobWrapper(object):
 	def is_due(self):
 		return self.job.is_due()
 
+	def disable(self):
+		return self.job.disable()
+
+	def enable(self):
+		return self.job.enable()
+
 	def run(self, *args, **kwargs):
 		self.proc = threading.Thread(target=self.job.run, args=args, kwargs=kwargs)
 		self.proc.daemon = True
 		self.proc.start()
 
+	def catch(self, err_handler):
+		'''register job specific error handler'''
+		return self.job.catch(err_handler)
 
 
 class NeverJob(Job):
