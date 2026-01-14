@@ -165,6 +165,13 @@ class TaskMonitor(object):
 	def __date_sort_attr(self, d):
 		return {'data-sort': d.timestamp() if d is not None else 0}
 
+	def __duration_sort_attr(self, jdict):
+		if jdict['logs']['start'] is not None and jdict['logs']['end'] is not None:
+			# Calculate total seconds for the data-sort attribute
+			delta = (jdict['logs']['end'] - jdict['logs']['start']).total_seconds()
+			return {'data-sort': delta}
+		return {'data-sort': 0}
+
 	def __descrTD(self, d):
 		if d is None: return TD('-')
 		d = d.strip()
@@ -244,7 +251,7 @@ class TaskMonitor(object):
 				'State': TD(state['state'], css=state['css'], attrs={'title': state['title']}),
 				'Start': TD(self.__date_fmt(start_dt), attrs=self.__date_sort_attr(start_dt)),
 				'End': TD(self.__date_fmt(end_dt), attrs=self.__date_sort_attr(end_dt)),
-				'Time Taken': TD(duration),
+				'Time Taken': TD(duration, attrs=self.__duration_sort_attr(jd)),
 				'Next Run': TD(next_dt_str, attrs=self.__date_sort_attr(next_dt)),
 				'More':TD("<a href='/{}/{}'><button>show more</button><a>".format(self._endpoint, jd['jobid']))
 			}))
