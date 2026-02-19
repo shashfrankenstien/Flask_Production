@@ -7,6 +7,8 @@ import threading
 import inspect
 import hashlib
 import traceback
+import socket
+import subprocess
 
 from . import print_logger
 
@@ -59,6 +61,35 @@ RUNABLE_DAYS = {
 	'eom-businessday': _is_eom_businessday,
 }
 
+
+_SERVER_INFO = {} # cache
+def _get_server_info():
+	'''called to get server and git info while reporting errors'''
+	global _SERVER_INFO
+
+	if _SERVER_INFO:
+		return _SERVER_INFO
+
+	hostname =  socket.gethostname()
+	_server_info = {
+		'hostname': hostname,
+		'ip_addr': socket.gethostbyname(hostname),
+		'git_url': 'Not found'
+	}
+	try:
+		git_remote = subprocess.run(['git', 'remote', '-v'], capture_output=True, text=True, check=True)
+		for line in git_remote.stdout.split('\n'):
+			line = line.strip()
+			if not line:
+				continue
+			name = line[:line.find('http')].strip()
+			if name == 'origin':
+				_server_info['git_url'] = line[line.find('http'): line.find(".git ")].strip() + ".git"
+	except:
+		pass
+
+	_SERVER_INFO = _server_info # cache fields
+	return _SERVER_INFO
 
 
 
@@ -293,7 +324,14 @@ class Job(object):
 		except Exception:
 			traceback.print_exc()
 			print("Job", self.func_signature(), "failed!")
-			err_msg = "Error in {}\n\n\n{}".format(self.func_signature(), traceback.format_exc())
+			_server_info = _get_server_info()
+			err_msg = "Error in {func}\nhostname: {host}\nip addr: {ip}\ngit origin url: {git_url}\n\n\n{tb}".format(
+				func=self.func_signature(),
+				host=_server_info['hostname'],
+				ip=_server_info['ip_addr'],
+				git_url=_server_info['git_url'],
+				tb=traceback.format_exc()
+			)
 			self._run_info.set_error()
 			try:
 				if self._err_handler is not None:
