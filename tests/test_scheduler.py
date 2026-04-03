@@ -7,6 +7,8 @@ from monthdelta import monthdelta
 from dateutil.parser import parse as date_parse
 from dateutil import tz
 import pytest
+from dateutil.easter import easter
+from dateutil.relativedelta import relativedelta, FR
 
 from flask_production import TaskScheduler
 from flask_production.jobs import Job
@@ -111,6 +113,12 @@ def test_holidays():
 	s.every("trading-holiday").at("10:00").do(job, x="hello", y="world")
 	assert(s.jobs[1]._job_must_run_today(date_parse("2020-01-01"))==True)
 	assert(s.jobs[1]._job_must_run_today(date_parse("2020-01-02"))==False)
+
+	# added [04/03/2026]
+	good_friday_2025 = easter(2025) + relativedelta(weekday=FR(-1))
+	good_friday_2026 = easter(2026) + relativedelta(weekday=FR(-1))
+	assert(s.jobs[1]._job_must_run_today(good_friday_2025)==True) # 2025 good friday was a holiday
+	assert(s.jobs[1]._job_must_run_today(good_friday_2026)==False) # 2026 good friday was NOT a holiday
 
 
 def test_multi_intraday(): # test list of timestamps for .at()

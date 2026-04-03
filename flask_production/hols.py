@@ -5,9 +5,6 @@ from dateutil.relativedelta import relativedelta, MO, FR
 from dateutil.easter import easter
 
 
-GOOD_FRIDAY_TRADING_HOLIDAY = str(os.environ.get('GOOD_FRIDAY_TRADING_HOLIDAY')).strip() == '1'
-
-
 class TradingHolidays(holidays.countries.UnitedStates):
 	def _populate(self, year):
 		# Populate the holiday list with the default US holidays
@@ -24,11 +21,12 @@ class TradingHolidays(holidays.countries.UnitedStates):
 		if year==2023:
 			self.pop(date(year, 11, 10), None)
 
-		# # Add Good Friday
-		# NOTE: removed this since Good Friday is not a bond market holiday - [04/01/2021]
-		# new NOTE: this is back to being a holiday now. So making it env variable - [4/17/2025]
-		if GOOD_FRIDAY_TRADING_HOLIDAY:
-			self[easter(year) + relativedelta(weekday=FR(-1))] = "Good Friday"
+		# # Add Good Friday  [04/03/2026]
+		# Good Friday is a holiday usually unless it's the first Friday of a month
+		# Employment numbers come out on first Friday of every month. So market is open for a few hours even on Good Friday
+		good_friday = easter(year) + relativedelta(weekday=FR(-1))
+		if good_friday.month == (good_friday - relativedelta(days=7)).month: # check if previous Friday is same month
+			self[good_friday] = "Good Friday"
 
 		# 2021-12-31 is not a holiday apparently :( and windows version seems to think it is
 		nye_2021 = date(2021, 12, 31)
