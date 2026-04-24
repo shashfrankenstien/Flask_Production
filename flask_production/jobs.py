@@ -84,7 +84,10 @@ def _get_server_info():
 				continue
 			name = line[:line.find('http')].strip()
 			if name == 'origin':
-				_server_info['git_url'] = line[line.find('http'): line.find(".git ")].strip() + ".git"
+				git_url = line[line.find('http'): line.find(".git ")].strip() + ".git"
+				# Remove user and token from git URL (handles https://user:token@host/path format)
+				git_url = re.sub(r'https?://[^@]*@', 'https://', git_url)
+				_server_info['git_url'] = git_url
 	except:
 		pass
 
