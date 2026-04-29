@@ -12,25 +12,69 @@ function countdown_str(seconds) {
     return `${hours.pad()}:${minutes.pad()}:${Math.floor(seconds).pad()}`
 }
 
+modal_alert.container.style.backgroundColor = ""
+modal_alert.container.style.color = ""
+modal_alert.container.classList.add('console-color')
+
+const RERUN_MODAL = new Modal(document.getElementById('rerun-popup'),
+{
+    width: '35rem',
+    height: '20rem',
+    displayStyle: 'flex',
+})
+
+
 function rerun_trigger(job_name, jobid) {
-    const input_txt = prompt("Please type in the job name to confirm rerun", "");
-    console.log(jobid)
-    const payload = {jobid, api_token: API_TOKEN}
-    if (input_txt===job_name) {
-        fetch('./rerun', {method: 'POST', body: JSON.stringify(payload)}).then(resp => {
-            return resp.json();
-        }).then(j=>{
-            if (j.success)
-                window.location.reload()
-            else if (j.error)
-                throw Error(j.error)
-            else
-                throw Error("Rerun failed")
-        }).catch(e=>alert(e))
-    } else {
-        alert("Rerun aborted")
-    }
+    RERUN_MODAL.open().then(popup=>{
+        let job_name_prompt = popup.querySelector("#popup-rerun-prompt")
+        job_name_prompt.focus()
+
+        popup.querySelector("#popup-rerun-btn").onclick = ()=>{ // assign rerun button action
+            let updated_kwargs = {}
+            let updated_types = {}
+            for (let kwarg of popup.querySelectorAll(".rerun-kwarg")) {
+                let input_elem = kwarg.querySelector("input")
+                let new_val
+                if (input_elem.type === 'checkbox') { // boolean
+                    new_val = input_elem.checked ? 'true' : 'false'
+                } else {
+                    new_val = input_elem.value
+                }
+                let orig_value = kwarg.getAttribute('data-value')
+                if (orig_value !== new_val) {
+                    console.log("updated", orig_value, new_val)
+                    updated_kwargs[kwarg.getAttribute('data-key')] = new_val
+                    updated_types[kwarg.getAttribute('data-key')] = kwarg.getAttribute('data-type')
+                }
+            }
+
+            let job_name_text = job_name_prompt.value
+            console.log(job_name, jobid, updated_kwargs, job_name_text)
+            if (job_name_text == job_name) {
+                send_rerun_request(jobid, updated_kwargs, updated_types)
+            } else {
+                modal_alert.open("Rerun aborted")
+            }
+            RERUN_MODAL.close()
+        }
+    })
 }
+
+
+function send_rerun_request(jobid, kwargs, types) {
+    const payload = {jobid, kwargs, types, api_token: API_TOKEN}
+    fetch('./rerun', {method: 'POST', body: JSON.stringify(payload)}).then(resp => {
+        return resp.json();
+    }).then(j=>{
+        if (j.success)
+            window.location.reload()
+        else if (j.error)
+            throw Error(j.error)
+        else
+            throw Error("Rerun failed")
+    }).catch(e=>alert(e))
+}
+
 
 function enable_disable(job_name, jobid, disable) {
     const prompt_txt = "Please type in the job name to confirm " + ((disable) ? "disable": "enable")

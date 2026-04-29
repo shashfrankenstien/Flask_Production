@@ -1,4 +1,4 @@
-from datetime import datetime as dt
+from datetime import datetime as dt, date
 from collections import OrderedDict
 import json
 import random
@@ -10,10 +10,10 @@ from flask import Flask, Blueprint, request, send_file
 
 
 from .html_templates import * # pylint: disable=unused-wildcard-import
+from ..sched import TaskScheduler
 
 
-
-class TaskMonitor(object):
+class TaskMonitor:
 	'''
 	Web interface to monitor and manage tasks
 
@@ -34,7 +34,13 @@ class TaskMonitor(object):
 	- can_disable (bool): if True adds `disable` button to job page
 		- default True
 	'''
-	def __init__(self, app:Flask, sched, display_name=None, endpoint="@taskmonitor", homepage_refresh=30, taskpage_refresh=5,
+	def __init__(self,
+		app:Flask,
+		sched:TaskScheduler,
+		display_name=None,
+		endpoint="@taskmonitor",
+		homepage_refresh=30,
+		taskpage_refresh=5,
 		can_rerun=True, # adds rerun button to job page
 		can_disable=True, # adds disable button to job page
 		):
@@ -259,7 +265,7 @@ class TaskMonitor(object):
 		head = [TH(th, default_sort=(th=="Next Run") ) for th in d[0].keys()]	# apply sorting to 'next run'
 		all_jobs_table = TABLE(thead=THEAD(head), tbody=TBODY(rows), elem_id='all-jobs', css='all-jobs')
 		refresh_text = SMALL(f"Auto-refresh in {SPAN(self._homepage_refresh, attrs={'id': 'refresh-msg'})} seconds")
-		filter_input = INPUT("", attrs={'type':'text', 'placeholder':'Filter', 'id': 'filter-box'})
+		filter_input = INPUT(attrs={'type':'text', 'placeholder':'Filter', 'id': 'filter-box'})
 
 		js_auto_reload_variables = '''let COUNT_DOWN = {};'''.format(self._homepage_refresh)
 
@@ -341,7 +347,7 @@ class TaskMonitor(object):
 		logs_div = DIV( logs_table, css="logs_div" )
 
 		container = DIV(
-			monitor_div + logs_div,
+			monitor_div + logs_div + _create_rerun_popup_html(j.func, j.kwargs),
 			css="container"
 		)
 
@@ -364,6 +370,7 @@ class TaskMonitor(object):
 			stylesheets=[
 				self.__css_src_wrap('dark_theme.css'),
 				self.__css_src_wrap('taskmonitor.css'),
+				self.__css_src_wrap('rerun_popup.css'),
 			],
 			body=[
 				container,
@@ -384,7 +391,23 @@ class TaskMonitor(object):
 			error = 'Invalid input'
 		else:
 			try:
-				self.sched.rerun(data['jobid'])
+				kwargs = data.get('kwargs') or {}
+				types = data.get('types') or {}
+				# Convert kwargs based on types
+				for k, v in kwargs.items():
+					typ = types.get(k)
+					if typ == 'bool':
+						kwargs[k] = v.lower() == 'true'
+					elif typ == 'int':
+						kwargs[k] = int(v)
+					elif typ == 'float':
+						kwargs[k] = float(v)
+					elif typ == 'datetime':
+						kwargs[k] = dt.fromisoformat(v)
+					elif typ == 'date':
+						kwargs[k] = date.fromisoformat(v)
+					# else keep as string
+				self.sched.rerun(data['jobid'], kwargs=kwargs)
 			except Exception as e:
 				error = str(e)
 
@@ -419,3 +442,100 @@ class TaskMonitor(object):
 			return json.dumps({'error': error})
 		else:
 			return json.dumps({'success': True})
+
+
+
+def _create_rerun_popup_html(func:object, input_kwargs:dict) -> str:
+	#<div id="rerun-popup" style="display: none; width: 100%; height: 100%;" class="console-color">
+	#     <input type="text"
+	#         style="width: 80%;"
+	#         placeholder="Please type in the job name to confirm rerun">
+	# </div>
+	argspec = inspect.getfullargspec(func)
+	total_args = len(argspec.args)
+	total_with_defaults = len(argspec.defaults) if argspec.defaults else 0
+	kwargs = {}
+	for i, arg in enumerate(argspec.args):
+		if arg in input_kwargs:
+			kwargs[arg] = input_kwargs[arg]
+		elif i >= total_args - total_with_defaults:
+			kwargs[arg] = argspec.defaults[i - (total_args - total_with_defaults)]
+		else:
+			kwargs[arg] = None
+
+	kwargs_options = ''
+	if isinstance(kwargs, dict) and len(kwargs) > 0:
+		for k,v in kwargs.items():
+			inp_attrs = {
+				'type': 'text',
+				'title': k,
+				'value': str(v),
+			}
+			orig_kwarg_attr = {'data-key': k, 'data-value': v}
+			annot = argspec.annotations.get(k)
+			if annot==str or isinstance(v, str):
+				inp_attrs['type'] = 'text'
+				orig_kwarg_attr['data-type'] = 'str'
+
+			elif annot==dt or isinstance(v, dt): # check datetime before date as true datetime objects will wrongly match date
+				inp_attrs['type'] = 'datetime-local'
+				inp_attrs['value'] = v.isoformat(timespec="seconds")
+				orig_kwarg_attr['data-value'] = v.isoformat(timespec="seconds") # maintain the same formatting
+				orig_kwarg_attr['data-type'] = 'datetime'
+
+			elif annot==date or isinstance(v, date):
+				inp_attrs['type'] = 'date'
+				inp_attrs['value'] = v.strftime("%Y-%m-%d")
+				orig_kwarg_attr['data-value'] = v.strftime("%Y-%m-%d") # maintain the same formatting
+				orig_kwarg_attr['data-type'] = 'date'
+
+			elif annot==bool or isinstance(v, bool): # check bool before int as boolean objects will wrongly match int
+				inp_attrs['type'] = 'checkbox'
+				if v:
+					inp_attrs['checked'] = 'checked'
+				orig_kwarg_attr['data-value'] = 'true' if v else 'false'
+				orig_kwarg_attr['data-type'] = 'bool'
+
+			elif annot in (int, float) or isinstance(v, (int,float)):
+				inp_attrs['type'] = 'number'
+				orig_kwarg_attr['data-type'] = 'int'
+				if annot == float or isinstance(v, float):
+					inp_attrs['step'] = "0.001"
+					orig_kwarg_attr['data-type'] = 'float'
+
+			else:
+				inp_attrs['disabled'] = '1'
+
+			opt = DIV(
+				content=SPAN(k) + INPUT(attrs=inp_attrs),
+				css=['rerun-kwarg'],
+				attrs=orig_kwarg_attr
+			)
+			kwargs_options += opt
+
+
+	job_name_input = INPUT(attrs={
+		'id': 'popup-rerun-prompt',
+		'type':"text",
+		'style':"width: 80%;",
+		'placeholder': 'Please type in the job name to confirm rerun'
+	})
+
+	rerun_btn = '''<button id="popup-rerun-btn" class="btn">Rerun</button>''' # action will be assigned by js
+
+
+	kwargs_section = DIV(
+		kwargs_options,
+		css=['rerun-kwargs-set']
+	)
+
+	rerun_section = DIV(
+		"<hr/>" + job_name_input + rerun_btn,
+		css=['rerun-exec']
+	)
+
+	return DIV(
+		content=kwargs_section + rerun_section,
+		css=['console-color', 'rerun-popup'],
+		attrs={'id': "rerun-popup", 'style': 'display: none; width: 100%; height: 100%;'},
+	)

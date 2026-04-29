@@ -14,13 +14,14 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/highlight.min.js"></script>
         <script src="https://cdn.jsdelivr.net/gh/TRSasasusu/highlightjs-highlight-lines.js@1.2.0/highlightjs-highlight-lines.min.js"></script>
         <script src="https://cdn.jsdelivr.net/gh/shashfrankenstien/lib-tablefilterjs@v0.0.5/lib-tablefilter.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/gh/shashfrankenstien/lib-modaljs@v0.3.0/lib-modal.min.js"></script>
         <script>
             hljs.configure({languages: ['python', 'accesslog']});
             hljs.highlightAll();
         </script>
         <title>{{ title }}</title>
+        {{ stylesheets }}
     </head>
-    {{ stylesheets }}
     <body class="{{ body_css }}">
         {{ body }}
     </body>

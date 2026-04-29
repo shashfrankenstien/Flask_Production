@@ -302,12 +302,14 @@ class TaskScheduler(object):
 			self.join()
 		print(self, "Done!")
 
+
 	def join(self):
 		'''wait for any async jobs to complete'''
 		for j in self.jobs:
 			if isinstance(j, AsyncJobWrapper) and j.is_running: # wait for any running parallel tasks
 				j.proc.join()
 				print(j, "exited")
+
 
 	def stop(self):
 		'''stop job started with .start() method'''
@@ -319,6 +321,7 @@ class TaskScheduler(object):
 				return j
 		return None
 
+
 	def rerun(self, jobid, kwargs: dict=None):
 		selected_job = self.get_job_by_id(jobid)
 		if selected_job is None:
@@ -329,10 +332,13 @@ class TaskScheduler(object):
 			selected_job = AsyncJobWrapper(selected_job)
 		selected_job.run(is_rerun=True, kwargs=kwargs)
 
+
 	def disable_all(self):
 		for j in self.jobs:
 			j.disable()
 
+
 	def enable_all(self):
+		# TODO: should this only enable jobs that were disabled using disable_all()?
 		for j in self.jobs:
 			j.enable()

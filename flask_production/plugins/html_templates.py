@@ -25,7 +25,8 @@ def _TAG(tag, content, css, attrs):
 	attrs = ['''{}="{}"'''.format(k,v) for k,v in attrs.items()]
 	if not isinstance(css, (list,set,tuple)):
 		css = [css]
-	attrs.append('''class="{}"'''.format(' '.join(css)))
+	if css:
+		attrs.append('''class="{}"'''.format(' '.join(css)))
 	return "<{t} {a}>{c}</{t}>".format(t=tag, a=' '.join(attrs), c=content)
 
 def H(index, content, css=[], attrs={}):
@@ -67,8 +68,8 @@ def TD(content, colspan=1, rowspan=1, css=[], attrs={}):
 def TR(row, css=[], attrs={}):
 	return _TAG('tr', ''.join(row), css, attrs)
 
-def INPUT(content, css=[], attrs={}):
-	return _TAG('input', content, css, attrs)
+def INPUT(css=[], attrs={}):
+	return _TAG('input', content="", css=css, attrs=attrs)
 
 def CODE(s, css=[]):
 	if not isinstance(css, (list,set,tuple)):

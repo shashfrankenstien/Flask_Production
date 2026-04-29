@@ -9,6 +9,7 @@ import hashlib
 import traceback
 import socket
 import subprocess
+import sys
 
 from . import print_logger
 
@@ -305,6 +306,14 @@ class Job(object):
 		'''this is an internal runner. see self.run() for more'''
 		self.is_running = True
 		try:
+
+			kw = self.kwargs.copy() # start with default kwargs
+			if isinstance(kwargs, dict) and len(kwargs) > 0:
+				# if kwargs provided, update
+				# however, job will fail if a key is provided that is not expected by the job
+				# TODO: should we remove bad arguments here, or let it fail?
+				kw.update(kwargs)
+
 			if not self._run_silently: # add print statements
 				print("========== [{:03}] - Job {} [{}] =========".format(
 					self.jobid,
@@ -312,16 +321,11 @@ class Job(object):
 					self.tz_now().strftime("%Y-%m-%d %H:%M:%S %Z")
 				))
 				print("Executing {}".format(self))
+				if isinstance(kwargs, dict) and len(kwargs) > 0:
+					print("Using different args - {}".format(kwargs))
 				print("*") # job log seperator
+
 			start_time = time.time()
-
-			kw = self.kwargs.copy() # start with default kwargs
-			if isinstance(kwargs, dict):
-				# if kwargs provided, update
-				# however, job will fail if a key is provided that is not expected by the job
-				# TODO: should we remove bad arguments here, or let it fail?
-				kw.update(kwargs)
-
 			return self.func(**kw)
 
 		except Exception:
@@ -342,11 +346,12 @@ class Job(object):
 				elif self._generic_err_handler is not None:
 					self._generic_err_handler(err_msg) # generic error callback from scheduler
 			except:
-				traceback.print_exc()
+				traceback.print_exc(file=sys.stderr) # prints to stderr
 		finally:
 			# if the job was forced to rerun, we should not schedule the next run
 			if not is_rerun:
 				self.schedule_next_run(just_ran=True)
+
 			if not self._run_silently: # add print statements
 				print("*") # job log seperator
 				print( "Finished in {:.2f} minutes".format((time.time()-start_time)/60))
