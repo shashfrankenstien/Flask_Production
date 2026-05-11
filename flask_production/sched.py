@@ -73,6 +73,7 @@ class TaskScheduler(object):
 
 		self.jobs = []
 		self._check_interval = check_interval
+		self._last_checked = None
 		self._startup_grace_mins = startup_grace_mins
 		self.on_job_error = on_job_error
 
@@ -270,9 +271,16 @@ class TaskScheduler(object):
 
 	def check(self):
 		'''check if a job is due'''
-		for j in self.jobs.copy(): # work on a shallow copy of this list - safer in case the list changes. TODO: maybe use locks instead?
+		for j in self.jobs.copy(): # uses a shallow copy of this list - safer in case the list changes. TODO: maybe use locks instead?
 			if j.is_due() and not j.is_running:
 				j.run()
+
+		self._last_checked = time.time()
+
+
+	def has_checked(self):
+		'''inform if scheduler is actively checking, running and rescheduling jobs through Job.is_due() and Job.run()'''
+		return self._last_checked is not None
 
 
 	def restore_all_job_logs(self):

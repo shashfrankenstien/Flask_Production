@@ -322,7 +322,7 @@ class Job(object):
 				))
 				print("Executing {}".format(self))
 				if isinstance(kwargs, dict) and len(kwargs) > 0:
-					print("Using different args - {}".format(kwargs))
+					print("Using override args - {}".format(kwargs))
 				print("*") # job log seperator
 
 			start_time = time.time()
@@ -550,6 +550,7 @@ class AsyncJobWrapper(object):
 		return self.job.enable()
 
 	def run(self, *args, **kwargs):
+		'''non-blocking'''
 		self.proc = threading.Thread(target=self.job.run, args=args, kwargs=kwargs)
 		self.proc.daemon = True
 		self.proc.start()

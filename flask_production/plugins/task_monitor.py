@@ -1,5 +1,5 @@
 from datetime import datetime as dt, date
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 import json
 import random
 import string
@@ -11,6 +11,7 @@ from flask import Flask, Blueprint, request, send_file
 
 from .html_templates import * # pylint: disable=unused-wildcard-import
 from ..sched import TaskScheduler
+from ..script_func import ScriptFunc
 
 
 class TaskMonitor:
@@ -302,6 +303,7 @@ class TaskMonitor:
 		state = self.__state(jobd)
 		job_funcname = jobd['func'].replace('<', '&lt;').replace('>', '&gt;')
 
+		# should we use BUTTON template function? Maybe raw string is easier here
 		enable_disable_btn = '''<button class="btn enable-disable-btn"
 									onclick="enable_disable('{name}', {jobid}, {job_disable})"
 									{btn_disabled}>
@@ -312,6 +314,7 @@ class TaskMonitor:
 			btn_disabled="disabled" if state['state']=="RUNNING" else "",
 			btn_name="Disable" if not jobd['is_disabled'] else "Enable",
 		)
+		# should we use BUTTON template function? Maybe raw string is easier here
 		rerun_btn = '''<button class="btn rerun-btn"
 							onclick="rerun_trigger('{name}', {jobid})"
 							{btn_disabled}>
@@ -363,6 +366,7 @@ class TaskMonitor:
 		let ERR_LINE = {self.__src_err_line(jobd)};
 		let TASKPAGE_REFRESH = {self._taskpage_refresh};
 		let API_TOKEN = '{self._api_protection_token}';
+		let SCHED_HAS_CHECKED = {'true' if self.sched.has_checked() else 'false'};
 		'''
 
 		return HTML(
@@ -390,13 +394,15 @@ class TaskMonitor:
 		elif 'jobid' not in data or not isinstance(data['jobid'], int):
 			error = 'Invalid input'
 		else:
-			try:
-				kwargs = data.get('kwargs') or {}
-				types = data.get('types') or {}
-				# Convert kwargs based on types
-				for k, v in kwargs.items():
-					typ = types.get(k)
-					if typ == 'bool':
+			kwargs = data.get('kwargs') or {}
+			types = data.get('types') or {}
+			# Convert kwargs based on types
+			for k, v in kwargs.items():
+				typ = types.get(k)
+				try:
+					if typ == 'none':
+						kwargs[k] = None
+					elif typ == 'bool':
 						kwargs[k] = v.lower() == 'true'
 					elif typ == 'int':
 						kwargs[k] = int(v)
@@ -407,9 +413,14 @@ class TaskMonitor:
 					elif typ == 'date':
 						kwargs[k] = date.fromisoformat(v)
 					# else keep as string
-				self.sched.rerun(data['jobid'], kwargs=kwargs)
-			except Exception as e:
-				error = str(e)
+				except Exception as e:
+					error = f"DataType error {k} ({typ}) - {str(e)}"
+
+			if error is None:
+				try:
+					self.sched.rerun(data['jobid'], kwargs=kwargs)
+				except Exception as e:
+					error = f"Task rerun error - {str(e)}"
 
 		if error is not None:
 			return json.dumps({'error': error})
@@ -424,7 +435,7 @@ class TaskMonitor:
 		if 'api_token' not in data or data['api_token']!=self._api_protection_token:
 			error = 'Action blocked'
 
-		if 'jobid' not in data or not isinstance(data['jobid'], int):
+		elif 'jobid' not in data or not isinstance(data['jobid'], int):
 			error = 'Invalid input'
 		else:
 			try:
@@ -445,7 +456,16 @@ class TaskMonitor:
 
 
 
+#
+
 def _create_rerun_popup_html(func:object, input_kwargs:dict) -> str:
+	'''
+	This function will check types and create appropriate HTML input fields to allow for accurate changes
+	- we assign current values to 'data-key' and 'data-value' to the input container.
+		these are checked js to flag that an argument has changed
+	- None value arguments are handled by checkbox
+	- see __rerun_job() where types are converted back to python
+	'''
 	#<div id="rerun-popup" style="display: none; width: 100%; height: 100%;" class="console-color">
 	#     <input type="text"
 	#         style="width: 80%;"
@@ -454,75 +474,138 @@ def _create_rerun_popup_html(func:object, input_kwargs:dict) -> str:
 	argspec = inspect.getfullargspec(func)
 	total_args = len(argspec.args)
 	total_with_defaults = len(argspec.defaults) if argspec.defaults else 0
-	kwargs = {}
-	for i, arg in enumerate(argspec.args):
-		if arg in input_kwargs:
-			kwargs[arg] = input_kwargs[arg]
-		elif i >= total_args - total_with_defaults:
-			kwargs[arg] = argspec.defaults[i - (total_args - total_with_defaults)]
-		else:
-			kwargs[arg] = None
 
-	kwargs_options = ''
-	if isinstance(kwargs, dict) and len(kwargs) > 0:
-		for k,v in kwargs.items():
-			inp_attrs = {
-				'type': 'text',
-				'title': k,
-				'value': str(v),
-			}
-			orig_kwarg_attr = {'data-key': k, 'data-value': v}
-			annot = argspec.annotations.get(k)
-			if annot==str or isinstance(v, str):
-				inp_attrs['type'] = 'text'
-				orig_kwarg_attr['data-type'] = 'str'
+	kwargs_options = '' # default value
 
-			elif annot==dt or isinstance(v, dt): # check datetime before date as true datetime objects will wrongly match date
-				inp_attrs['type'] = 'datetime-local'
-				inp_attrs['value'] = v.isoformat(timespec="seconds")
-				orig_kwarg_attr['data-value'] = v.isoformat(timespec="seconds") # maintain the same formatting
-				orig_kwarg_attr['data-type'] = 'datetime'
+	for i, name in enumerate(argspec.args):
+		if name == 'self' and isinstance(func, ScriptFunc):
+			continue # ScriptFunc is a callable class. __call__ function takes 'self' as argument which we don't care about here
 
-			elif annot==date or isinstance(v, date):
-				inp_attrs['type'] = 'date'
-				inp_attrs['value'] = v.strftime("%Y-%m-%d")
-				orig_kwarg_attr['data-value'] = v.strftime("%Y-%m-%d") # maintain the same formatting
-				orig_kwarg_attr['data-type'] = 'date'
+		annot = argspec.annotations.get(name)
+		value_exists = False
+		value = None
+		default_exists = False
+		default = None
+		if name in input_kwargs:
+			value = input_kwargs[name]
+			value_exists = True
 
-			elif annot==bool or isinstance(v, bool): # check bool before int as boolean objects will wrongly match int
-				inp_attrs['type'] = 'checkbox'
-				if v:
-					inp_attrs['checked'] = 'checked'
-				orig_kwarg_attr['data-value'] = 'true' if v else 'false'
-				orig_kwarg_attr['data-type'] = 'bool'
+		if i >= total_args - total_with_defaults:
+			default = argspec.defaults[i - (total_args - total_with_defaults)]
+			default_exists = True
+			if not value_exists:
+				value = default
 
-			elif annot in (int, float) or isinstance(v, (int,float)):
-				inp_attrs['type'] = 'number'
-				orig_kwarg_attr['data-type'] = 'int'
-				if annot == float or isinstance(v, float):
-					inp_attrs['step'] = "0.001"
-					orig_kwarg_attr['data-type'] = 'float'
+		def _value_isinstance(type_or_tuple):
+			'''
+			check both type of value and default value
+			- in cases where annotations is not provided and input value is set to None,
+				we try to get the type info from default value in func definition when default_exists is True
+			'''
+			return isinstance(value, type_or_tuple) or (default_exists and isinstance(default, type_or_tuple))
 
+		inp_attrs = {
+			'type': 'text',
+			'title': str(name),
+			'value': str(value),
+		}
+		orig_kwarg_attr = {
+			'data-key': name,
+			'data-value': value
+		}
+
+		bool_select = None
+		if annot==str or _value_isinstance(str):
+			inp_attrs['type'] = 'text'
+			orig_kwarg_attr['data-type'] = 'str'
+
+		elif annot==dt or _value_isinstance(dt): # check datetime before date as true datetime objects will wrongly match date
+			inp_attrs['type'] = 'datetime-local'
+			inp_attrs['value'] = value.isoformat(timespec="seconds")
+			orig_kwarg_attr['data-value'] = value.isoformat(timespec="seconds") # maintain the same formatting
+			orig_kwarg_attr['data-type'] = 'datetime'
+
+		elif annot==date or _value_isinstance(date):
+			inp_attrs['type'] = 'date'
+			inp_attrs['value'] = value.strftime("%Y-%m-%d")
+			orig_kwarg_attr['data-value'] = value.strftime("%Y-%m-%d") # maintain the same formatting
+			orig_kwarg_attr['data-type'] = 'date'
+
+		elif annot==bool or _value_isinstance(bool): # check bool before int as boolean objects will wrongly match int
+			true_option_attrs = {'value': 'true'}
+			false_option_attrs = {'value': 'false'}
+			none_option_attrs = {'value': '', 'disabled': 'disabled'}
+			if value is True:
+				true_option_attrs['selected'] = 'selected'
+				orig_kwarg_attr['data-value'] = 'true'
+			elif value is False:
+				false_option_attrs['selected'] = 'selected'
+				orig_kwarg_attr['data-value'] = 'false'
 			else:
-				inp_attrs['disabled'] = '1'
+				none_option_attrs['selected'] = 'selected'
+				orig_kwarg_attr['data-value'] = 'none'
+			bool_options = [
+				OPTION('', attrs=none_option_attrs),
+				OPTION('True', attrs=true_option_attrs),
+				OPTION('False', attrs=false_option_attrs),
+			]
+			bool_select = SELECT(bool_options, css=['rerun-bool-select'], attrs={'title': f"{name} (bool)"})
+			orig_kwarg_attr['data-type'] = 'bool'
 
-			opt = DIV(
-				content=SPAN(k) + INPUT(attrs=inp_attrs),
-				css=['rerun-kwarg'],
-				attrs=orig_kwarg_attr
-			)
-			kwargs_options += opt
+		# we will force int type only if explicitly annotated as int.
+		# else numbers will be treated as float for convenience of datatype inference
+		elif annot == int:
+			# inp_attrs['type'] = 'text' # default
+			inp_attrs["inputmode"] = "numeric"
+			inp_attrs["pattern"] = "[0-9]*"
+			inp_attrs["oninput"] = "this.value = this.value.replace(/[^0-9]/g, '');"
+			orig_kwarg_attr['data-type'] = 'int'
+
+		elif annot == float or _value_isinstance((int,float)):
+			# inp_attrs['type'] = 'text' # default
+			inp_attrs["inputmode"] = "decimal"
+			inp_attrs["oninput"] = "this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');"
+			orig_kwarg_attr['data-type'] = 'float'
+
+		else:
+			inp_attrs['disabled'] = 'disabled'
+
+		if 'data-type' in orig_kwarg_attr:
+			inp_attrs['title'] += f" ({orig_kwarg_attr['data-type']})"
+		else:
+			inp_attrs['title'] += f" (not editable)"
+
+		none_attr = {'title': 'Set value to None'}
+		if value is None:
+			none_attr['data-none'] = '1'
+			none_attr['data-orig-none'] = '1'
+
+		input_field = bool_select if bool_select else INPUT(attrs=inp_attrs)
+
+		opt = DIV(
+			content=SPAN(name) + input_field + BUTTON("None", css=['btn', 'none-btn'], attrs=none_attr),
+			css=['rerun-kwarg'],
+			attrs=orig_kwarg_attr
+		)
+		kwargs_options += opt
 
 
 	job_name_input = INPUT(attrs={
 		'id': 'popup-rerun-prompt',
 		'type':"text",
-		'style':"width: 80%;",
 		'placeholder': 'Please type in the job name to confirm rerun'
 	})
 
-	rerun_btn = '''<button id="popup-rerun-btn" class="btn">Rerun</button>''' # action will be assigned by js
+	rerun_btn = BUTTON("Rerun", css=['btn'], attrs={'id': 'popup-rerun-btn'}) # action will be assigned by js
+	cancel_btn = BUTTON("Cancel", css=['btn'], attrs={'id': 'popup-cancel-btn'}) # action will be assigned by js
 
+	header_section = DIV(
+		content=H(3, "Rerun job") + '<p>Update arguments (optional) and confirm rerun by typing the job name</p>',
+		css=[]
+	)
+
+	if not kwargs_options:
+		kwargs_options = 'This job takes no arguments' # fallback value
 
 	kwargs_section = DIV(
 		kwargs_options,
@@ -530,12 +613,12 @@ def _create_rerun_popup_html(func:object, input_kwargs:dict) -> str:
 	)
 
 	rerun_section = DIV(
-		"<hr/>" + job_name_input + rerun_btn,
+		job_name_input + rerun_btn + cancel_btn,
 		css=['rerun-exec']
 	)
 
 	return DIV(
-		content=kwargs_section + rerun_section,
+		content=header_section + kwargs_section + rerun_section,
 		css=['console-color', 'rerun-popup'],
 		attrs={'id': "rerun-popup", 'style': 'display: none; width: 100%; height: 100%;'},
 	)

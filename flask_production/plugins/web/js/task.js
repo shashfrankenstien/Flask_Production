@@ -12,14 +12,25 @@ function countdown_str(seconds) {
     return `${hours.pad()}:${minutes.pad()}:${Math.floor(seconds).pad()}`
 }
 
-modal_alert.container.style.backgroundColor = ""
-modal_alert.container.style.color = ""
-modal_alert.container.classList.add('console-color')
+// update modal theme to use theme from page
+for (let _modal of [modal_alert, modal_prompt, modal_confirm]) {
+    _modal.container.style.backgroundColor = ""
+    _modal.container.style.color = ""
+    _modal.container.classList.add('console-color')
+}
 
-const RERUN_MODAL = new Modal(document.getElementById('rerun-popup'),
+
+// setup rerun popup modal
+const _RERUN_POPUP_ELEM = document.getElementById('rerun-popup')
+let _rerun_height = "" // disable fixed height by default
+if (_RERUN_POPUP_ELEM.querySelectorAll(".rerun-kwarg").length > 6) {
+    _rerun_height = "35rem" // cap it from getting too big
+}
+
+const RERUN_MODAL = new Modal(_RERUN_POPUP_ELEM,
 {
-    width: '35rem',
-    height: '20rem',
+    width: '50rem',
+    height: _rerun_height,
     displayStyle: 'flex',
 })
 
@@ -29,29 +40,69 @@ function rerun_trigger(job_name, jobid) {
         let job_name_prompt = popup.querySelector("#popup-rerun-prompt")
         job_name_prompt.focus()
 
+        popup.querySelectorAll(".none-btn").forEach(btn=>{
+            const editable = btn.parentElement.hasAttribute('data-type') // has an editable type
+            const inp = btn.parentElement.querySelector("input, select")
+
+            if (btn.hasAttribute('data-none') && editable) {
+                inp.setAttribute("disabled", "disabled")
+            }
+
+            btn.onclick = () => {
+                const checked = btn.getAttribute("data-none")
+                if (checked===null) {
+                    btn.setAttribute("data-none", '1')
+                    if (editable) {
+                        inp.setAttribute("disabled", "disabled")
+                    }
+                } else {
+                    btn.removeAttribute('data-none')
+                    if (editable) {
+                        inp.removeAttribute("disabled")
+                    }
+                }
+            }
+        })
+
+        popup.querySelector("#popup-cancel-btn").onclick = ()=>{
+            RERUN_MODAL.close()
+        }
+
         popup.querySelector("#popup-rerun-btn").onclick = ()=>{ // assign rerun button action
             let updated_kwargs = {}
             let updated_types = {}
             for (let kwarg of popup.querySelectorAll(".rerun-kwarg")) {
-                let input_elem = kwarg.querySelector("input")
-                let new_val
-                if (input_elem.type === 'checkbox') { // boolean
-                    new_val = input_elem.checked ? 'true' : 'false'
-                } else {
-                    new_val = input_elem.value
+                const name = kwarg.getAttribute('data-key')
+                const new_val = kwarg.querySelector("input, select").value
+                const orig_value = kwarg.getAttribute('data-value')
+                const none_btn = kwarg.querySelector(".none-btn")
+                const none_value = none_btn.hasAttribute('data-none')
+                const orig_none_value = none_btn.hasAttribute('data-orig-none')
+                if (none_value) {
+                    if (!orig_none_value) {
+                        console.log("updated", name, "None")
+                        updated_kwargs[name] = null
+                        updated_types[name] = 'none' // inform the backend that the value is None
+                    }
                 }
-                let orig_value = kwarg.getAttribute('data-value')
-                if (orig_value !== new_val) {
+                else if (orig_value !== new_val) {
                     console.log("updated", orig_value, new_val)
-                    updated_kwargs[kwarg.getAttribute('data-key')] = new_val
-                    updated_types[kwarg.getAttribute('data-key')] = kwarg.getAttribute('data-type')
+                    updated_kwargs[name] = new_val
+                    updated_types[name] = kwarg.getAttribute('data-type')
                 }
             }
 
             let job_name_text = job_name_prompt.value
             console.log(job_name, jobid, updated_kwargs, job_name_text)
             if (job_name_text == job_name) {
-                send_rerun_request(jobid, updated_kwargs, updated_types)
+                if (Object.keys(updated_kwargs).length > 0) {
+                    modal_confirm.open(
+                        "Some arguments were changed. Are you sure you want to rerun?",
+                        ()=>send_rerun_request(jobid, updated_kwargs, updated_types)
+                    )
+                } else {
+                    send_rerun_request(jobid, updated_kwargs, updated_types)
+                }
             } else {
                 modal_alert.open("Rerun aborted")
             }
@@ -72,30 +123,35 @@ function send_rerun_request(jobid, kwargs, types) {
             throw Error(j.error)
         else
             throw Error("Rerun failed")
-    }).catch(e=>alert(e))
+    }).catch(e=>modal_alert.open(e))
 }
 
 
 function enable_disable(job_name, jobid, disable) {
     const prompt_txt = "Please type in the job name to confirm " + ((disable) ? "disable": "enable")
-    const input_txt = prompt(prompt_txt, "");
-    console.log(jobid)
-    const payload = {jobid, disable, api_token: API_TOKEN}
-    if (input_txt===job_name) {
-        fetch('./enable_disable', {method: 'POST', body: JSON.stringify(payload)}).then(resp => {
-            return resp.json();
-        }).then(j=>{
-            if (j.success)
-                window.location.reload()
-            else if (j.error)
-                throw Error(j.error)
-            else
-                throw Error("Action failed")
-        }).catch(e=>alert(e))
-    } else {
-        alert("Action aborted")
+    // const input_txt = prompt(prompt_txt, "");
+
+    const on_disable = (input_txt) => {
+        const payload = {jobid, disable, api_token: API_TOKEN}
+        if (input_txt===job_name) {
+            fetch('./enable_disable', {method: 'POST', body: JSON.stringify(payload)}).then(resp => {
+                return resp.json();
+            }).then(j=>{
+                if (j.success)
+                    window.location.reload()
+                else if (j.error)
+                    throw Error(j.error)
+                else
+                    throw Error("Action failed")
+            }).catch(e=>modal_alert.open(e))
+        } else {
+            modal_alert.open("Action aborted")
+        }
     }
+
+    modal_prompt.open(prompt_txt, on_disable)
 }
+
 
 window.addEventListener('load', (event) => {
     //scroll to bottom
@@ -104,14 +160,14 @@ window.addEventListener('load', (event) => {
         setTimeout(()=>location.reload(), TASKPAGE_REFRESH * 1000)
     } else if ( isNaN(NEXT_RUN) ) { // if not number
         document.getElementById("next-run-in").innerHTML = NEXT_RUN
-    } else {
+    } else if (SCHED_HAS_CHECKED) { // if scheduler is actively checking, running and rescheduling jobs
         const timer = setInterval(()=>{
-            let ttr = (NEXT_RUN * 1000)-Date.now()
-            if (ttr<=0) {
+            const time_to_run = (NEXT_RUN * 1000)-Date.now()
+            if (time_to_run <= 0) {
                 clearInterval(timer)
                 setTimeout(()=>location.reload(), 1000) // small timeout to avoid too many reloads
             } else {
-                document.getElementById("next-run-in").innerHTML = countdown_str(ttr/1000)
+                document.getElementById("next-run-in").innerHTML = countdown_str(time_to_run/1000)
             }
         }, 1000)
     }

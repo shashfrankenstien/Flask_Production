@@ -71,6 +71,15 @@ def TR(row, css=[], attrs={}):
 def INPUT(css=[], attrs={}):
 	return _TAG('input', content="", css=css, attrs=attrs)
 
+def BUTTON(content, css=[], attrs={}):
+	return _TAG('button', content, css, attrs)
+
+def OPTION(content, css=[], attrs={}):
+	return _TAG('option', content, css, attrs)
+
+def SELECT(options, css=[], attrs={}):
+	return _TAG('select', ''.join(options), css, attrs)
+
 def CODE(s, css=[]):
 	if not isinstance(css, (list,set,tuple)):
 		css = [css]
