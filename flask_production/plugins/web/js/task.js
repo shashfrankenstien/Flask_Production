@@ -23,13 +23,18 @@ for (let _modal of [modal_alert, modal_prompt, modal_confirm]) {
 // setup rerun popup modal
 const _RERUN_POPUP_ELEM = document.getElementById('rerun-popup')
 let _rerun_height = "" // disable fixed height by default
+let _rerun_width = "40rem"
 if (_RERUN_POPUP_ELEM.querySelectorAll(".rerun-kwarg").length > 6) {
     _rerun_height = "35rem" // cap it from getting too big
 }
+if (_RERUN_POPUP_ELEM.querySelectorAll(".rerun-kwarg").length > 0) {
+    _rerun_width = "50rem" // cap it from getting too big
+}
+
 
 const RERUN_MODAL = new Modal(_RERUN_POPUP_ELEM,
 {
-    width: '50rem',
+    width: _rerun_width,
     height: _rerun_height,
     displayStyle: 'flex',
 })

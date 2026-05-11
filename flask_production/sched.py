@@ -42,21 +42,20 @@ def get_local_timezone_name():
 
 
 
-class TaskScheduler(object):
+class TaskScheduler:
 	"""
 	TaskScheduler: main class to setup, run and manage jobs
 
-	Args:
-	- check_interval (int): how often to check for pending jobs
-	- holidays_calendar (holidays.HolidayBase): calendar to use for intervals like `businessday`
-	- tzname (str): name of timezone as supported by dateutil.tz
-	- on_job_error (function(e)): function to call if any job fail
-	- log_filepath (path): file to write logs to
-	- log_maxsize (int): byte limit per log file
-	- log_backups (int): number of backups of logs to retain
-	- startup_grace_mins (int): grace period for tasks in case a schedule was missed because of app restart
-	- persist_states (bool): store job logs and read back on app restart
-	- state_handler (.state.BaseStateHandler): different handler backends to store job logs
+	- check_interval (`int`): how often to check for pending jobs
+	- holidays_calendar (`holidays.HolidayBase`): calendar to use for intervals like 'businessday'
+	- tzname (`str`): name of timezone as supported by dateutil.tz
+	- on_job_error (`function(exc)`): function to call if any job fail
+	- log_filepath (`path`): file to write logs to
+	- log_maxsize (`int`): byte limit per log file
+	- log_backups (`int`): number of backups of logs to retain
+	- startup_grace_mins (`int`): grace period for tasks in case a schedule was missed because of app restart
+	- persist_states (`bool`): store job logs and read back on app restart
+	- state_handler (`.state.BaseStateHandler`): different handler backends to store job logs
 	"""
 
 	def __init__(self,
