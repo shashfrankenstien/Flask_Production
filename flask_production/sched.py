@@ -70,7 +70,7 @@ class TaskScheduler:
 		persist_states: bool=True,
 		state_handler: Union[BaseStateHandler, None]=None) -> None:
 
-		self.jobs = []
+		self.jobs:list[Job] = []
 		self._check_interval = check_interval
 		self._last_checked = None
 		self._startup_grace_mins = startup_grace_mins
@@ -322,7 +322,7 @@ class TaskScheduler:
 		'''stop job started with .start() method'''
 		self._running_auto = False
 
-	def get_job_by_id(self, jobid):
+	def get_job_by_id(self, jobid) -> (Job | None):
 		for j in self.jobs:
 			if j.jobid==jobid:
 				return j

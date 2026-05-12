@@ -1,5 +1,6 @@
 from datetime import datetime as dt, date
-from collections import OrderedDict, namedtuple
+from collections import OrderedDict
+from enum import Enum
 import json
 import random
 import string
@@ -345,8 +346,8 @@ class TaskMonitor:
 		)
 
 		logs_row = TR([
-			TD( DIV( CODE(jobd['logs']['log'], css='accesslog'), css='console-div'), css="console-color"),
-			TD( DIV( CODE(jobd['logs']['err'], css='accesslog'), css='console-div'), css="console-color"),
+			TD( DIV( CODE(html_escape(jobd['logs']['log']), css='accesslog'), css='console-div'), css="console-color"),
+			TD( DIV( CODE(html_escape(jobd['logs']['err']), css='accesslog'), css='console-div'), css="console-color"),
 		])
 		logs_table = TABLE(thead=THEAD([TH('Logs'), TH('Traceback')]), tbody=TBODY(logs_row), css='log_table')
 		logs_div = DIV( logs_table, css="logs_div" )
@@ -393,8 +394,8 @@ class TaskMonitor:
 		if 'api_token' not in data or data['api_token']!=self._api_protection_token:
 			error = 'Invalid token. Rerun blocked. Please reload the page and try again'
 
-		elif 'jobid' not in data or not isinstance(data['jobid'], int):
-			error = 'Invalid input'
+		elif 'jobid' not in data or not isinstance(data['jobid'], int) or (_job := self.sched.get_job_by_id(data['jobid'])) is None:
+			error = 'Invalid job'
 		else:
 			kwargs = data.get('kwargs') or {}
 			types = data.get('types') or {}
@@ -414,6 +415,28 @@ class TaskMonitor:
 						kwargs[k] = dt.fromisoformat(v)
 					elif typ == 'date':
 						kwargs[k] = date.fromisoformat(v)
+
+					elif str(typ).endswith('<enum>'):
+						# for custom enum types, we need to get the enum class either from function annotation or kwarg value
+						# j = self.sched.get_job_by_id(data['jobid'])
+						argspec = inspect.getfullargspec(_job.func)
+						_class = argspec.annotations.get(k)
+						if not _class:
+							val = _job.kwargs.get(k)
+							if issubclass(type(val), Enum):
+								_class = type(val)
+						if not _class:
+							total_args = len(argspec.args)
+							total_with_defaults = len(argspec.defaults) if argspec.defaults else 0
+							i = argspec.args.index(k)
+							if i >= total_args - total_with_defaults:
+								default = argspec.defaults[i - (total_args - total_with_defaults)]
+								if issubclass(type(default), Enum):
+									_class = type(default)
+						if not _class:
+							raise ValueError(f"Bad type for {k}")
+
+						kwargs[k] = _class[v]
 					# else keep as string
 				except Exception as e:
 					error = f"DataType error {k} ({typ}) - {str(e)}"
@@ -536,7 +559,7 @@ class TaskMonitor:
 				elif annot==bool or _value_isinstance(bool): # check bool before int as boolean objects will wrongly match int
 					true_option_attrs = {'value': 'true'}
 					false_option_attrs = {'value': 'false'}
-					none_option_attrs = {'value': '', 'disabled': 'disabled'}
+					none_option_attrs = {'value': '', 'disabled': 'disabled', 'hidden':'hidden'}
 					if value is True:
 						true_option_attrs['selected'] = 'selected'
 						orig_kwarg_attr['data-value'] = 'true'
@@ -568,6 +591,23 @@ class TaskMonitor:
 					inp_attrs["inputmode"] = "decimal"
 					inp_attrs["oninput"] = "this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');"
 					orig_kwarg_attr['data-type'] = 'float'
+
+				elif annot and issubclass(annot, Enum) or _value_isinstance(Enum):
+					if annot and issubclass(annot, Enum):
+						enum_cls = annot
+					else:
+						enum_cls = type(default) if default_exists else type(value)
+
+					options = [OPTION('', attrs={'value': '', 'disabled': 'disabled', 'selected': 'selected', 'hidden':'hidden'})]
+					for k,v in enum_cls.__members__.items():
+						attrs = {'value': v.name}
+						if v == value:
+							attrs['selected'] = 'selected'
+						options.append(OPTION(k, attrs=attrs))
+
+					bool_select = SELECT(options, css=['rerun-bool-select'], attrs={'title': f"{name} ({enum_cls})"})
+					orig_kwarg_attr['data-type'] = f"{enum_cls.__name__}<enum>"
+					orig_kwarg_attr['data-value'] = value.name if value is not None else None
 
 				else:
 					inp_attrs['disabled'] = 'disabled'

@@ -10,6 +10,10 @@ def _readTemplate(fileName, **kwargs):
 		templateText = templateText.replace("{{ "+arg+" }}", str(kwargs[arg]))
 	return templateText
 
+def html_escape(text):
+	'''replace < and > with &lt; and &gt;'''
+	return text.replace("<", "&lt;").replace(">", "&gt;")
+
 
 def HTML(title:str, stylesheets:list, body:list, body_css:list=[]):
 	if not isinstance(body_css, (list,set,tuple)):
