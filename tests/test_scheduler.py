@@ -1,7 +1,11 @@
-import os, glob, shutil
+import os
+import sys
+import glob
+import shutil
 import time
 import threading
 import json
+import io
 from datetime import datetime as dt, timedelta
 from monthdelta import monthdelta
 from dateutil.parser import parse as date_parse
@@ -384,13 +388,21 @@ def test_log_rotation():
 
 
 def test_silent_run():
-	def slow_job(sleep_time):
+
+	# Redirect stderr to a buffer
+	sys.stderr = io.StringIO() # Job object prints lines to stderr if not marked as silent
+
+	def silent_job(sleep_time):
 		time.sleep(sleep_time)
-		print("Slow job completed")
+		print("silent job completed")
+
+	def not_silent_job():
+		print("This will print to screen")
 
 	sleep_time = 1
 	s = TaskScheduler(log_filepath=LOGGING_TEST_FILE)
-	s.every(1).do_parallel(slow_job, sleep_time=sleep_time).silently()
+	silent_job_obj = s.every(1).do_parallel(silent_job, sleep_time=sleep_time).silently()
+	not_silent_job_obj = s.every(1).do_parallel(not_silent_job)
 	s.check()
 
 	counter = 4
@@ -402,16 +414,28 @@ def test_silent_run():
 		time.sleep(0.5)
 	print("stopping")
 	s.join()
-	j0 = s.jobs[0].to_dict()
-	assert('Slow job completed' in j0['logs']['log'])
-	assert('===' not in j0['logs']['log'])      # '===' is printed only if job is not silent
-	assert('outside' not in j0['logs']['log'])
-	assert('stopping' not in j0['logs']['log'])
-	pretty_print(j0)
+	silent_dict = silent_job_obj.to_dict()
+	not_silent_dict = not_silent_job_obj.to_dict()
+
+	captured_stderr = sys.stderr.getvalue()
+	print(captured_stderr)
+	sys.stderr = sys.__stderr__
+
+	assert('silent job completed' in silent_dict['logs']['log'])
+	assert('silent job completed' not in captured_stderr) # silent job will not write to stderr
+	assert('This will print to screen' in not_silent_dict['logs']['log'])
+	assert('This will print to screen' in captured_stderr)
+
+	assert('outside' not in silent_dict['logs']['log'])
+	assert('stopping' not in silent_dict['logs']['log'])
+	pretty_print(silent_dict)
+	pretty_print(not_silent_dict)
 	# test log file
 	assert(os.path.isfile(LOGGING_TEST_FILE)==True)
 	with open(LOGGING_TEST_FILE, 'r') as lf:
-		assert('Slow job completed' in lf.read())
+		_log = lf.read()
+		assert('silent job completed' in _log)
+		assert('===' in _log)
 
 
 

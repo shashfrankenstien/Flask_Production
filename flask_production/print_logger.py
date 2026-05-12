@@ -61,28 +61,29 @@ class _PrintLogger(object):
 			self._started_at = None
 			self._ended_at = None
 
-	def _log_callback(self, msg: str):
+	def _log_callback(self, msg:str, silently:bool=False):
 		'''
 		writting to stderr since stdout is being redirected here. Using print() will be circular
 		log to file using the logging library if LOGGER handler is set by TaskScheduler
 		'''
 		if msg.strip()=='':return
 		msg = msg.replace('\r\n', '\n') # replace line endings to work correctly
-		sys.stderr.write(msg)
+		if not silently:
+			sys.stderr.write(msg)
 		if len(LOGGER.handlers)>0:
 			LOGGER.info(msg.strip())
 		with self._lock:
 			self._run_log += msg
 
 	@contextmanager
-	def start_capture(self):
+	def start_capture(self, silently:bool=False):
 		'''
 		begin recording print statements
 		'''
 		self._reset() # clear previous run info
 		with self._lock:
 			self._started_at = dt.now(tz=tz.gettz(self._tzname))
-		with print_capture(callback=self._log_callback):
+		with print_capture(callback=lambda msg: self._log_callback(msg, silently=silently)):
 			yield
 		with self._lock:
 			self._ended_at = dt.now(tz=tz.gettz(self._tzname))
