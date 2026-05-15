@@ -10,13 +10,17 @@ from .html_templates import * # pylint: disable=unused-wildcard-import
 
 
 class ControlPanel:
-	'''Automatically scan ports and consolidate many TaskMonitors'''
+	'''
+	Automatically scan ports and consolidate many TaskMonitors
+	 - ssl_verify is true by default because why wouldn't it be. Disable at your own risk
+	'''
 
 	def __init__(self,
 		app,
 		ports=[],
 		external_addrs=[],
-		page_refresh=60):
+		page_refresh=60,
+		ssl_verify=True):
 
 		self.app = app
 		self.machine = socket.gethostname()
@@ -24,6 +28,7 @@ class ControlPanel:
 		self.ports = set(ports)
 		self.external_addrs = set(external_addrs)
 		self.page_refresh = page_refresh
+		self.ssl_verify = ssl_verify
 		self.app.add_url_rule("/", view_func=self._render_monitors, methods=['GET'])
 		self.app.add_url_rule("/static/<type>/<filename>", view_func=self.__serve_file, methods=['GET'])
 
@@ -50,7 +55,7 @@ class ControlPanel:
 			else:
 				monitor_url = f"http://{host}:{port}/@taskmonitor" # need to add option to change this endpoint since task monitor has that option
 
-			res = requests.get(f"{monitor_url}/json/summary", timeout=timeout).json()
+			res = requests.get(f"{monitor_url}/json/summary", timeout=timeout, verify=self.ssl_verify).json()
 			# print(json.dumps(res, indent=4))
 			res['port'] = port
 			res['url'] = monitor_url
@@ -116,13 +121,19 @@ class ControlPanel:
 		summary_txt = SMALL(f"Monitoring {tot_jobs} jobs")
 		rerun_txt = SMALL(f"Auto-refresh in {SPAN(self.page_refresh, attrs={'id': 'refresh-msg'})} seconds")
 
-		return HTML(''.join([
-			STYLE_LINK('/static/css/dark_theme.css'),
-			STYLE_LINK('/static/css/ctrl_panel.css'),
-			header,
-			summary_txt,
-			rerun_txt,
-			wrapper,
-			SCRIPT(f'''let COUNT_DOWN = {self.page_refresh}'''),
-			SCRIPT_SRC('/static/js/ctrl_panel.js')
-		]), title=header_txt)
+		return HTML(
+			title=header_txt,
+			stylesheets=[
+				STYLESHEET('/static/css/dark_theme.css'),
+				STYLESHEET('/static/css/ctrl_panel.css'),
+			],
+			body=[
+				header,
+				summary_txt,
+				rerun_txt,
+				wrapper,
+				SCRIPT(f'''let COUNT_DOWN = {self.page_refresh}'''),
+				SCRIPT_SRC('/static/js/ctrl_panel.js')
+			],
+			body_css=[]
+		)

@@ -9,6 +9,7 @@ import hashlib
 import traceback
 import socket
 import subprocess
+import sys
 
 from . import print_logger
 
@@ -140,6 +141,10 @@ class Job(object):
 		return self
 
 	def silently(self, run_silently=True):
+		'''
+		Mark the job to not print any info lines to console.
+		Mostly good for jobs that are scheduled to run every few seconds
+		'''
 		self._run_silently = run_silently
 		return self
 
@@ -305,24 +310,27 @@ class Job(object):
 		'''this is an internal runner. see self.run() for more'''
 		self.is_running = True
 		try:
-			if not self._run_silently: # add print statements
-				print("========== [{:03}] - Job {} [{}] =========".format(
-					self.jobid,
-					"Rerun Start" if is_rerun else "Start",
-					self.tz_now().strftime("%Y-%m-%d %H:%M:%S %Z")
-				))
-				print("Executing {}".format(self))
-				print("*") # job log seperator
-			start_time = time.time()
 
 			kw = self.kwargs.copy() # start with default kwargs
-			if isinstance(kwargs, dict):
+			if isinstance(kwargs, dict) and len(kwargs) > 0:
 				# if kwargs provided, update
 				# however, job will fail if a key is provided that is not expected by the job
 				# TODO: should we remove bad arguments here, or let it fail?
 				kw.update(kwargs)
 
-			return self.func(**kw)
+			# add print statements
+			print("========== [{:03}] - Job {} [{}] =========".format(
+				self.jobid,
+				"Rerun Start" if is_rerun else "Start",
+				self.tz_now().strftime("%Y-%m-%d %H:%M:%S %Z")
+			))
+			print("Executing {}".format(self))
+			if isinstance(kwargs, dict) and len(kwargs) > 0:
+				print("Using override args - {}".format(kwargs))
+			print("*") # job log seperator
+
+			start_time = time.time()
+			return self.func(**kw) # actual job execution
 
 		except Exception:
 			traceback.print_exc()
@@ -342,20 +350,21 @@ class Job(object):
 				elif self._generic_err_handler is not None:
 					self._generic_err_handler(err_msg) # generic error callback from scheduler
 			except:
-				traceback.print_exc()
+				traceback.print_exc(file=sys.stderr) # prints to stderr
 		finally:
 			# if the job was forced to rerun, we should not schedule the next run
 			if not is_rerun:
 				self.schedule_next_run(just_ran=True)
-			if not self._run_silently: # add print statements
-				print("*") # job log seperator
-				print( "Finished in {:.2f} minutes".format((time.time()-start_time)/60))
-				print(self)
-				print("========== [{:03}] - Job {} [{}] =========".format(
-					self.jobid,
-					"Rerun End" if is_rerun else "End",
-					self.tz_now().strftime("%Y-%m-%d %H:%M:%S %Z")
-				))
+
+			# add print statements
+			print("*") # job log seperator
+			print( "Finished in {:.2f} minutes".format((time.time()-start_time)/60))
+			print(self)
+			print("========== [{:03}] - Job {} [{}] =========".format(
+				self.jobid,
+				"Rerun End" if is_rerun else "End",
+				self.tz_now().strftime("%Y-%m-%d %H:%M:%S %Z")
+			))
 			self.is_running = False
 
 
@@ -366,7 +375,7 @@ class Job(object):
 		- call error handlers if provided
 		- execute registered callback functions
 		'''
-		with self._run_info.start_capture(): # captures all writes to stdout
+		with self._run_info.start_capture(silently=self._run_silently): # captures all writes to stdout
 			self._run(is_rerun=is_rerun, kwargs=kwargs)
 
 		for cb in self._on_complete_cbs: # call any registered on-complete callbacks
@@ -545,14 +554,21 @@ class AsyncJobWrapper(object):
 		return self.job.enable()
 
 	def run(self, *args, **kwargs):
+		'''non-blocking'''
 		self.proc = threading.Thread(target=self.job.run, args=args, kwargs=kwargs)
 		self.proc.daemon = True
 		self.proc.start()
 
 	def catch(self, err_handler):
 		'''register job specific error handler'''
-		return self.job.catch(err_handler)
+		return self.job.catch(err_handler=err_handler)
 
+	def silently(self, run_silently=True):
+		'''
+		Mark the job to not print any info lines to console.
+		Mostly good for jobs that are scheduled to run every few seconds
+		'''
+		return self.job.silently(run_silently=run_silently)
 
 class NeverJob(Job):
 	'''type of job that runs only on demand (using TaskMonitor plugin)'''

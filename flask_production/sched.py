@@ -42,21 +42,20 @@ def get_local_timezone_name():
 
 
 
-class TaskScheduler(object):
+class TaskScheduler:
 	"""
 	TaskScheduler: main class to setup, run and manage jobs
 
-	Args:
-	- check_interval (int): how often to check for pending jobs
-	- holidays_calendar (holidays.HolidayBase): calendar to use for intervals like `businessday`
-	- tzname (str): name of timezone as supported by dateutil.tz
-	- on_job_error (function(e)): function to call if any job fail
-	- log_filepath (path): file to write logs to
-	- log_maxsize (int): byte limit per log file
-	- log_backups (int): number of backups of logs to retain
-	- startup_grace_mins (int): grace period for tasks in case a schedule was missed because of app restart
-	- persist_states (bool): store job logs and read back on app restart
-	- state_handler (.state.BaseStateHandler): different handler backends to store job logs
+	- check_interval (`int`): how often to check for pending jobs
+	- holidays_calendar (`holidays.HolidayBase`): calendar to use for intervals like 'businessday'
+	- tzname (`str`): name of timezone as supported by dateutil.tz
+	- on_job_error (`function(exc)`): function to call if any job fail
+	- log_filepath (`path`): file to write logs to
+	- log_maxsize (`int`): byte limit per log file
+	- log_backups (`int`): number of backups of logs to retain
+	- startup_grace_mins (`int`): grace period for tasks in case a schedule was missed because of app restart
+	- persist_states (`bool`): store job logs and read back on app restart
+	- state_handler (`.state.BaseStateHandler`): different handler backends to store job logs
 	"""
 
 	def __init__(self,
@@ -71,8 +70,9 @@ class TaskScheduler(object):
 		persist_states: bool=True,
 		state_handler: Union[BaseStateHandler, None]=None) -> None:
 
-		self.jobs = []
+		self.jobs:list[Job] = []
 		self._check_interval = check_interval
+		self._last_checked = None
 		self._startup_grace_mins = startup_grace_mins
 		self.on_job_error = on_job_error
 
@@ -270,9 +270,16 @@ class TaskScheduler(object):
 
 	def check(self):
 		'''check if a job is due'''
-		for j in self.jobs.copy(): # work on a shallow copy of this list - safer in case the list changes. TODO: maybe use locks instead?
+		for j in self.jobs.copy(): # uses a shallow copy of this list - safer in case the list changes. TODO: maybe use locks instead?
 			if j.is_due() and not j.is_running:
 				j.run()
+
+		self._last_checked = time.time()
+
+
+	def has_checked(self):
+		'''inform if scheduler is actively checking, running and rescheduling jobs through Job.is_due() and Job.run()'''
+		return self._last_checked is not None
 
 
 	def restore_all_job_logs(self):
@@ -302,6 +309,7 @@ class TaskScheduler(object):
 			self.join()
 		print(self, "Done!")
 
+
 	def join(self):
 		'''wait for any async jobs to complete'''
 		for j in self.jobs:
@@ -309,15 +317,17 @@ class TaskScheduler(object):
 				j.proc.join()
 				print(j, "exited")
 
+
 	def stop(self):
 		'''stop job started with .start() method'''
 		self._running_auto = False
 
-	def get_job_by_id(self, jobid):
+	def get_job_by_id(self, jobid) -> (Job | None):
 		for j in self.jobs:
 			if j.jobid==jobid:
 				return j
 		return None
+
 
 	def rerun(self, jobid, kwargs: dict=None):
 		selected_job = self.get_job_by_id(jobid)
@@ -329,10 +339,13 @@ class TaskScheduler(object):
 			selected_job = AsyncJobWrapper(selected_job)
 		selected_job.run(is_rerun=True, kwargs=kwargs)
 
+
 	def disable_all(self):
 		for j in self.jobs:
 			j.disable()
 
+
 	def enable_all(self):
+		# TODO: should this only enable jobs that were disabled using disable_all()?
 		for j in self.jobs:
 			j.enable()

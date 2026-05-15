@@ -10,17 +10,27 @@ def _readTemplate(fileName, **kwargs):
 		templateText = templateText.replace("{{ "+arg+" }}", str(kwargs[arg]))
 	return templateText
 
+def html_escape(text):
+	'''replace < and > with &lt; and &gt;'''
+	return text.replace("<", "&lt;").replace(">", "&gt;")
 
-def HTML(content, title, css=[]):
-	if not isinstance(css, (list,set,tuple)):
-		css = [css]
-	return _readTemplate(os.path.join(WEB_FOLDER, 'index.html'), title=title, body=str(content), body_css=' '.join(css))
+
+def HTML(title:str, stylesheets:list, body:list, body_css:list=[]):
+	if not isinstance(body_css, (list,set,tuple)):
+		body_css = [body_css]
+	return _readTemplate(os.path.join(WEB_FOLDER, 'index.html'),
+		title=title,
+		stylesheets='\n'.join(stylesheets),
+		body='\n'.join(body),
+		body_css=' '.join(body_css)
+	)
 
 def _TAG(tag, content, css, attrs):
 	attrs = ['''{}="{}"'''.format(k,v) for k,v in attrs.items()]
 	if not isinstance(css, (list,set,tuple)):
 		css = [css]
-	attrs.append('''class="{}"'''.format(' '.join(css)))
+	if css:
+		attrs.append('''class="{}"'''.format(' '.join(css)))
 	return "<{t} {a}>{c}</{t}>".format(t=tag, a=' '.join(attrs), c=content)
 
 def H(index, content, css=[], attrs={}):
@@ -62,8 +72,17 @@ def TD(content, colspan=1, rowspan=1, css=[], attrs={}):
 def TR(row, css=[], attrs={}):
 	return _TAG('tr', ''.join(row), css, attrs)
 
-def INPUT(content, css=[], attrs={}):
-	return _TAG('input', content, css, attrs)
+def INPUT(css=[], attrs={}):
+	return _TAG('input', content="", css=css, attrs=attrs)
+
+def BUTTON(content, css=[], attrs={}):
+	return _TAG('button', content, css, attrs)
+
+def OPTION(content, css=[], attrs={}):
+	return _TAG('option', content, css, attrs)
+
+def SELECT(options, css=[], attrs={}):
+	return _TAG('select', ''.join(options), css, attrs)
 
 def CODE(s, css=[]):
 	if not isinstance(css, (list,set,tuple)):
@@ -77,5 +96,5 @@ def SCRIPT(s):
 def SCRIPT_SRC(url):
 	return '<script src="{}"></script>'.format(url)
 
-def STYLE_LINK(url):
+def STYLESHEET(url):
 	return '<link rel="stylesheet" href="{}">'.format(url)
