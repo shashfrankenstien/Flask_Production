@@ -322,7 +322,7 @@ class TaskScheduler:
 		'''stop job started with .start() method'''
 		self._running_auto = False
 
-	def get_job_by_id(self, jobid) -> (Job | None):
+	def get_job_by_id(self, jobid) -> Union[Job, None]:
 		for j in self.jobs:
 			if j.jobid==jobid:
 				return j
