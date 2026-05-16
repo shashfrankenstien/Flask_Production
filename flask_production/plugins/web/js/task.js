@@ -37,6 +37,7 @@ const RERUN_MODAL = new Modal(_RERUN_POPUP_ELEM,
     width: _rerun_width,
     height: _rerun_height,
     displayStyle: 'flex',
+    containerColor: 'transparent',
 })
 
 
