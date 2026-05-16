@@ -223,8 +223,8 @@ input {
     font-size: 13px;
 }
 .console-color {
-    background-color:var(--theme-logs-bg);
-    color: var(--theme-text);
+    background-color:var(--theme-logs-bg) !important;
+    color: var(--theme-text) !important;
 }
 .brdr {
     border: 1px solid var(--theme-logs-brdr);

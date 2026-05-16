@@ -13,10 +13,12 @@ function countdown_str(seconds) {
 }
 
 // update modal theme to use theme from page
+
+const MODAL_TRANSITION_START = {top: '-5%', left: '-5%'}
+
 for (let _modal of [modal_alert, modal_prompt, modal_confirm]) {
-    _modal.container.style.backgroundColor = ""
-    _modal.container.style.color = ""
     _modal.container.classList.add('console-color')
+    _modal.transitionStartPos = MODAL_TRANSITION_START
 }
 
 
@@ -38,6 +40,7 @@ const RERUN_MODAL = new Modal(_RERUN_POPUP_ELEM,
     height: _rerun_height,
     displayStyle: 'flex',
     containerColor: 'transparent',
+    transitionStartPos: MODAL_TRANSITION_START
 })
 
 
