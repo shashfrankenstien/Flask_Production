@@ -107,6 +107,11 @@
     opacity: 0.8;
 }
 
+#popup-rerun-prompt {
+    height: 2.2rem;
+    width: 75%;
+}
+
 .rerun-popup .none-btn {
     max-height: 25px;
     flex: 1;

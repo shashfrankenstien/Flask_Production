@@ -546,14 +546,14 @@ class TaskMonitor:
 
 				elif annot==dt or _value_isinstance(dt): # check datetime before date as true datetime objects will wrongly match date
 					inp_attrs['type'] = 'datetime-local'
-					inp_attrs['value'] = value.isoformat(timespec="seconds")
-					orig_kwarg_attr['data-value'] = value.isoformat(timespec="seconds") # maintain the same formatting
+					inp_attrs['value'] = value.isoformat(timespec="seconds") if value is not None else ''
+					orig_kwarg_attr['data-value'] = value.isoformat(timespec="seconds") if value is not None else '' # maintain the same formatting
 					orig_kwarg_attr['data-type'] = 'datetime'
 
 				elif annot==date or _value_isinstance(date):
 					inp_attrs['type'] = 'date'
-					inp_attrs['value'] = value.strftime("%Y-%m-%d")
-					orig_kwarg_attr['data-value'] = value.strftime("%Y-%m-%d") # maintain the same formatting
+					inp_attrs['value'] = value.strftime("%Y-%m-%d") if value is not None else ''
+					orig_kwarg_attr['data-value'] = value.strftime("%Y-%m-%d") if value is not None else '' # maintain the same formatting
 					orig_kwarg_attr['data-type'] = 'date'
 
 				elif annot==bool or _value_isinstance(bool): # check bool before int as boolean objects will wrongly match int
@@ -617,7 +617,7 @@ class TaskMonitor:
 				else:
 					inp_attrs['title'] += f" (not editable)"
 
-				none_attr = {'title': 'Set value to None'}
+				none_attr = {'title': "Set value to python 'None'"}
 				if value is None:
 					none_attr['data-none'] = '1'
 					none_attr['data-orig-none'] = '1'

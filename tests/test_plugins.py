@@ -5,6 +5,8 @@ from flask_production.plugins import TaskMonitor
 import time
 import json
 import pytest
+from datetime import datetime as dt, date
+from enum import Enum
 
 MONITOR_NAME = "Web Test"
 
@@ -139,3 +141,73 @@ def test_monitor_summary(client):
 	assert(respdict['success']['summary']['errors']==0)
 
 	assert(len(all_respdict['success'])==len(respdict['success']['details']))
+
+
+class Color(Enum):
+	RED = 1
+	BLUE = 2
+
+
+def task_with_typed_args(enabled: bool = True,
+				 count: int = 1,
+				 ratio: float = 3.14,
+				 run_at: dt = dt(2025, 1, 1, 12, 0),
+				 due: date = date(2025, 1, 1),
+				 color: Color = Color.RED):
+	pass
+
+
+def test_create_rerun_popup_html_with_typed_args():
+	original_setting = monitor._enhanced_rerun
+	monitor._enhanced_rerun = True
+	try:
+		input_kwargs = {
+			'enabled': False,
+			'count': 12,
+			'ratio': 2.75,
+			'run_at': dt(2025, 12, 31, 23, 59, 59),
+			'due': date(2025, 12, 31),
+			'color': Color.BLUE,
+		}
+		html = monitor._create_rerun_popup_html(task_with_typed_args, input_kwargs)
+		assert 'id="rerun-popup"' in html
+		assert 'id="popup-rerun-prompt"' in html
+		assert 'data-type="bool"' in html
+		assert 'data-type="int"' in html
+		assert 'data-type="float"' in html
+		assert 'data-type="datetime"' in html
+		assert 'data-type="date"' in html
+		assert 'data-type="Color<enum>"' in html
+		assert 'type="datetime-local"' in html
+		assert 'type="date"' in html
+		assert 'BLUE' in html
+
+		# None args
+		input_kwargs = {
+			'enabled': None,
+			'count': None,
+			'ratio': None,
+			'run_at': None,
+			'due': None,
+			'color': None,
+		}
+		html = monitor._create_rerun_popup_html(task_with_typed_args, input_kwargs)
+		assert 'id="rerun-popup"' in html
+		assert 'id="popup-rerun-prompt"' in html
+		assert 'data-type="bool"' in html
+		assert 'data-type="int"' in html
+		assert 'data-type="float"' in html
+		assert 'data-type="datetime"' in html
+		assert 'data-type="date"' in html
+		assert 'data-type="Color<enum>"' in html
+		assert 'data-none="1"' in html
+		assert 'data-value="none"' in html
+		assert 'data-value="None"' in html
+
+		# no args
+		html = monitor._create_rerun_popup_html(lambda: None, {})
+		assert 'id="rerun-popup"' in html
+		assert 'id="popup-rerun-prompt"' in html
+		assert 'This job takes no arguments' in html
+	finally:
+		monitor._enhanced_rerun = original_setting
