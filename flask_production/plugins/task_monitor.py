@@ -583,13 +583,13 @@ class TaskMonitor:
 					# inp_attrs['type'] = 'text' # default
 					inp_attrs["inputmode"] = "numeric"
 					inp_attrs["pattern"] = "[0-9]*"
-					inp_attrs["oninput"] = "this.value = this.value.replace(/[^0-9]/g, '');"
+					inp_attrs["oninput"] = r"this.value = this.value.replace(/[^0-9]/g, '');"
 					orig_kwarg_attr['data-type'] = 'int'
 
 				elif annot == float or _value_isinstance((int,float)):
 					# inp_attrs['type'] = 'text' # default
 					inp_attrs["inputmode"] = "decimal"
-					inp_attrs["oninput"] = "this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');"
+					inp_attrs["oninput"] = r"this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');"
 					orig_kwarg_attr['data-type'] = 'float'
 
 				elif annot and issubclass(annot, Enum) or _value_isinstance(Enum):
