@@ -53,7 +53,10 @@ def test_webservice(client):
 	assert(client.get("/").status_code==200)
 
 def test_blankpage(client):
-	homepage = client.get("/{}".format(monitor._endpoint))
+	homepage = client.get("/{}/".format(monitor._endpoint))
+	assert(homepage.status_code==200)
+	assert(homepage.data.decode().lower()=='nothing here')
+	homepage = client.get("/{}".format(monitor._endpoint), follow_redirects=True) # redirects to monitor._endpoint + "/"
 	assert(homepage.status_code==200)
 	assert(homepage.data.decode().lower()=='nothing here')
 
@@ -64,7 +67,7 @@ def test_monitor_homepage(client):
 	sched.every(30).do_parallel(lambda: wash_car())
 	# CherryFlask(app, sched).run() # unused
 
-	homepage = client.get("/{}".format(monitor._endpoint))
+	homepage = client.get("/{}".format(monitor._endpoint), follow_redirects=True)
 	assert(homepage.status_code==200)
 	html_text = homepage.data.decode(errors='ignore').lower()
 	assert("lambda" in html_text)
