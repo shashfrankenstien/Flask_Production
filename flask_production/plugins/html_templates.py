@@ -2,6 +2,12 @@ import os
 ROOT = os.path.dirname(os.path.realpath(__file__))
 WEB_FOLDER = os.path.join(ROOT, 'web')
 
+# expose package version to templates
+try:
+	from flask_production import __version__ as PACKAGE_VERSION
+except Exception:
+	PACKAGE_VERSION = ''
+
 
 def _readTemplate(fileName, **kwargs):
 	with open(fileName, 'r') as f:
@@ -22,7 +28,8 @@ def HTML(title:str, stylesheets:list, body:list, body_css:list=[]):
 		title=title,
 		stylesheets='\n'.join(stylesheets),
 		body='\n'.join(body),
-		body_css=' '.join(body_css)
+		body_css=' '.join(body_css),
+		version=f"fp v{PACKAGE_VERSION}"
 	)
 
 def _TAG(tag, content, css, attrs):
