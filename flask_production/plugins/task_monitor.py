@@ -7,7 +7,7 @@ import string
 import inspect
 
 from dateutil import tz
-from flask import Flask, Blueprint, request, send_file
+from flask import Flask, Blueprint, request, send_file, redirect
 
 
 from .html_templates import * # pylint: disable=unused-wildcard-import
@@ -63,7 +63,8 @@ class TaskMonitor:
 
 		bp = Blueprint('taskmonitor_bp', __name__, url_prefix=f"/{self._endpoint}")
 
-		bp.add_url_rule("", view_func=self.__show_all, methods=['GET'])
+		bp.add_url_rule("", view_func=lambda: redirect(request.path+"/", code=301) , methods=['GET']) # redirect to "/" because we need the browser to treat this endpoint as a folder
+		bp.add_url_rule("/", view_func=self.__show_all, methods=['GET'])
 		bp.add_url_rule("/<int:n>", view_func=self.__show_one, methods=['GET'])
 		bp.add_url_rule("/rerun", view_func=self.__rerun_job, methods=['POST'])
 		bp.add_url_rule("/enable_disable", view_func=self.__enable_disable_job, methods=['POST'])
@@ -87,10 +88,10 @@ class TaskMonitor:
 		return "{} Task Monitor".format(self._display_name)
 
 	def __js_src_wrap(self, filename):
-		return SCRIPT_SRC(f'/{self._endpoint}/static/js/{filename}')
+		return SCRIPT_SRC(f'./static/js/{filename}') # use relating url
 
 	def __css_src_wrap(self, filename):
-		return STYLESHEET(f'/{self._endpoint}/static/css/{filename}')
+		return STYLESHEET(f'./static/css/{filename}') # use relating url
 
 	def __serve_file(self, type, filename):
 		if 'max_age' in inspect.getfullargspec(send_file).args:
@@ -263,7 +264,7 @@ class TaskMonitor:
 				'End': TD(self.__date_fmt(end_dt), attrs=self.__date_sort_attr(end_dt)),
 				'Time Taken': TD(duration, attrs=self.__duration_sort_attr(jd)),
 				'Next Run': TD(next_dt_str, attrs=self.__date_sort_attr(next_dt)),
-				'More':TD("<a href='/{}/{}'><button>show more</button><a>".format(self._endpoint, jd['jobid']))
+				'More':TD("<a href='./{}'><button>show more</button><a>".format(jd['jobid'])) # use relating url
 			}))
 		rows = [TR(row.values()) for row in d]
 		head = [TH(th, default_sort=(th=="Next Run") ) for th in d[0].keys()]	# apply sorting to 'next run'
