@@ -45,7 +45,7 @@ class TaskMonitor:
 		taskpage_refresh=5,
 		can_rerun=True, # adds rerun button to job page
 		can_disable=True, # adds disable button to job page
-		enhanced_rerun=False, # set True to enable enhanced rerun feature with ability to edit function arguments
+		enhanced_rerun=True, # set False to disable enhanced rerun feature with ability to edit function arguments
 		):
 		self.tzname = sched._tz_default
 		self._init_dt = dt.now(tz.gettz(self.tzname)).strftime("%m/%d/%Y %I:%M %p %Z") # preformatted start time
