@@ -13,3 +13,4 @@ test.py
 build
 dist
 Dockerfile
+fp_nginx_test.conf

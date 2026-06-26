@@ -63,8 +63,8 @@ class TaskMonitor:
 
 		bp = Blueprint('taskmonitor_bp', __name__, url_prefix=f"/{self._endpoint}")
 
-		bp.add_url_rule("", view_func=lambda: redirect(request.path+"/", code=301) , methods=['GET']) # redirect to "/" because we need the browser to treat this endpoint as a folder
-		bp.add_url_rule("/", view_func=self.__show_all, methods=['GET'])
+		bp.add_url_rule("", view_func=self.__redirect_root, methods=['GET']) # redirect to "/" because we need the browser to treat this endpoint as a folder
+		bp.add_url_rule("/", view_func=self.__show_all, methods=['GET'], endpoint='index')
 		bp.add_url_rule("/<int:n>", view_func=self.__show_one, methods=['GET'])
 		bp.add_url_rule("/rerun", view_func=self.__rerun_job, methods=['POST'])
 		bp.add_url_rule("/enable_disable", view_func=self.__enable_disable_job, methods=['POST'])
@@ -83,15 +83,33 @@ class TaskMonitor:
 		if not _favicon_is_set:
 			self.app.add_url_rule("/favicon.ico", view_func=lambda: self.__serve_file('ico', 'flask_boiler.ico'), methods=['GET'])
 
+
 	@property
 	def title(self):
 		return "{} Task Monitor".format(self._display_name)
 
+
+	def __redirect_root(self):
+		'''
+		[6/25/2026]
+		redirect to "/" because we need the browser to treat this endpoint as a folder and not a file.
+		this will enable js, css and fetch requests to be relative.
+
+		Note: behind a reverse proxy. redirects don't work right if the endpoint is rewritten and not served from root.
+		So we use the conventional 'X-Script-Name' header to assist.
+		'''
+		redir_path = request.path+"/"
+		script_name_prefix = request.headers.get('X-Script-Name') or None
+		if isinstance(script_name_prefix, str):
+			redir_path = script_name_prefix.strip() + redir_path
+		return redirect(redir_path, code=301)
+
+
 	def __js_src_wrap(self, filename):
-		return SCRIPT_SRC(f'./static/js/{filename}') # use relating url
+		return SCRIPT_SRC(f'./static/js/{filename}') # use relating url. see self.__redirect_root
 
 	def __css_src_wrap(self, filename):
-		return STYLESHEET(f'./static/css/{filename}') # use relating url
+		return STYLESHEET(f'./static/css/{filename}') # use relating url. see self.__redirect_root
 
 	def __serve_file(self, type, filename):
 		if 'max_age' in inspect.getfullargspec(send_file).args:
@@ -264,7 +282,7 @@ class TaskMonitor:
 				'End': TD(self.__date_fmt(end_dt), attrs=self.__date_sort_attr(end_dt)),
 				'Time Taken': TD(duration, attrs=self.__duration_sort_attr(jd)),
 				'Next Run': TD(next_dt_str, attrs=self.__date_sort_attr(next_dt)),
-				'More':TD("<a href='./{}'><button>show more</button><a>".format(jd['jobid'])) # use relating url
+				'More':TD("<a href='./{}'><button>show more</button><a>".format(jd['jobid'])) # use relating url. see self.__redirect_root
 			}))
 		rows = [TR(row.values()) for row in d]
 		head = [TH(th, default_sort=(th=="Next Run") ) for th in d[0].keys()]	# apply sorting to 'next run'
