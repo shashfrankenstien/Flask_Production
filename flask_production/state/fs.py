@@ -23,10 +23,17 @@ class FileSystemState(BaseStateHandler):
 		# this folder can contain
 		# - info file that includes data used to come up with current app signature
 		# - job state information
+
+		# check if running as root
+		# os.geteuid() is only available on Unix-like systems
+		is_unix_root = os.name !='nt' and hasattr(os, 'geteuid') and os.geteuid() == 0
+		if is_unix_root:
+			share_dir = '/var/lib/flask_production' # if running as root
+		else:
+			share_dir = os.environ.get('APPDATA') or os.environ.get('XDG_DATA_HOME') or os.path.join(os.environ['HOME'], '.local', 'share')
+
 		cur_app_data_dir_path = os.path.join(
-			os.environ.get('APPDATA') or
-			os.environ.get('XDG_DATA_HOME') or
-			os.path.join(os.environ['HOME'], '.local', 'share'),
+			share_dir,
 			"flask_production_data",
 			self._cur_app_unique_info_hash
 		)
