@@ -504,11 +504,56 @@ class TaskMonitor:
 
 	def _create_rerun_popup_html(self, func:object, input_kwargs:dict) -> str:
 		'''
-		This function will check types and create appropriate HTML input fields to allow for accurate changes
-		- we assign current values to 'data-key' and 'data-value' to the input container.
-			these are checked js to flag that an argument has changed
-		- None value arguments are handled by checkbox
-		- see __rerun_job() where types are converted back to python
+		Build the enhanced rerun popup for a job.
+
+		The function inspects the callable signature and creates one editable row per
+		argument. Values supplied through ``input_kwargs`` are treated as explicit
+		input arguments for the rerun request, while values that are not supplied are
+		inherited from the callable's default arguments when they exist. Each row is
+		assembled from a small set of attribute dictionaries:
+
+		- ``inp_attrs``: base HTML attributes for the rendered form control. For
+		  regular text/date/datetime/number-style inputs it controls the field type,
+		  title text, value, and any input-specific constraints such as numeric
+		  patterns. For multiline string values, the function reuses these values to
+		  build a ``textarea`` with a fixed row height.
+		- ``orig_kwarg_attr``: metadata stored on the wrapper ``div`` for the row.
+		  It carries the argument name (``data-key``), the original value
+		  (``data-value``), and the inferred backend type (``data-type``). The
+		  frontend JavaScript uses these attributes to decide whether the user
+		  changed an argument before submitting a rerun request.
+		- ``none_attr``: attributes for the "None" button. When a value is ``None``
+		  or the user toggles the button, the button gets ``data-none`` and
+		  ``data-orig-none`` so the frontend can report that the argument should
+		  be sent as Python ``None``.
+		- ``input_field``: the actual rendered form control for the argument. It may
+		  be an ``input``, a ``textarea``, or a ``select`` element.
+
+		Supported datatypes and how they are handled:
+
+		- ``str``: rendered as a text input by default. If the current value contains
+		  newlines, the popup uses a multiline ``textarea`` so the user can edit the
+		  full string content. The frontend reads the textarea value and compares it
+		  against the original value to detect edits.
+		- ``datetime`` / ``date``: rendered as ``datetime-local`` and ``date`` inputs
+		  respectively. Their values are normalized to ISO-like strings before being
+		  sent back to the backend for conversion in ``__rerun_job()``.
+		- ``bool``: rendered as a select element with ``True``, ``False``, and an
+		  empty/None option. The selected state is mapped back to Python booleans or
+		  ``None``.
+		- ``int``: rendered as a text input with numeric-only input handling and a
+		  regex-based restriction for the browser.
+		- ``float``: rendered as a text input with decimal-friendly input handling.
+		- ``Enum`` subclasses: rendered as a select element populated with enum
+		  members. The selected name is converted back to the enum instance by the
+		  backend in ``__rerun_job()``.
+		- Unsupported / unknown types: rendered as a disabled field showing the
+		  ``repr(value)`` so the user can see the current value, but it cannot be
+		  edited.
+
+		The generated rows are collected into ``kwargs_options`` and inserted into the
+		popup body. The final popup also includes the job-name confirmation input and
+		the rerun/cancel buttons.
 		'''
 
 		header = H(3, "Rerun task")
@@ -558,10 +603,12 @@ class TaskMonitor:
 					'data-value': value
 				}
 
-				bool_select = None
+				input_field = None
 				if annot==str or _value_isinstance(str):
 					inp_attrs['type'] = 'text'
 					orig_kwarg_attr['data-type'] = 'str'
+					if '\n' in str(value):
+						inp_attrs['type'] = 'textarea'
 
 				elif annot==dt or _value_isinstance(dt): # check datetime before date as true datetime objects will wrongly match date
 					inp_attrs['type'] = 'datetime-local'
@@ -593,7 +640,7 @@ class TaskMonitor:
 						OPTION('True', attrs=true_option_attrs),
 						OPTION('False', attrs=false_option_attrs),
 					]
-					bool_select = SELECT(bool_options, css=['rerun-bool-select'], attrs={'title': f"{name} (bool)"})
+					input_field = SELECT(bool_options, css=['rerun-bool-select'], attrs={'title': f"{name} (bool)"})
 					orig_kwarg_attr['data-type'] = 'bool'
 
 				# we will force int type only if explicitly annotated as int.
@@ -624,24 +671,31 @@ class TaskMonitor:
 							attrs['selected'] = 'selected'
 						options.append(OPTION(k, attrs=attrs))
 
-					bool_select = SELECT(options, css=['rerun-bool-select'], attrs={'title': f"{name} ({enum_cls})"})
+					input_field = SELECT(options, css=['rerun-bool-select'], attrs={'title': f"{name} ({enum_cls})"})
 					orig_kwarg_attr['data-type'] = f"{enum_cls.__name__}<enum>"
 					orig_kwarg_attr['data-value'] = value.name if value is not None else None
 
 				else:
 					inp_attrs['disabled'] = 'disabled'
+					inp_attrs['value'] = repr(value).replace('\n', ' ') # remove any multiline repr
+					orig_kwarg_attr['data-value'] = inp_attrs['value'] # set these 2 to same so that JS is not confused if value was changed
 
 				if 'data-type' in orig_kwarg_attr:
 					inp_attrs['title'] += f" ({orig_kwarg_attr['data-type']})"
 				else:
 					inp_attrs['title'] += f" (not editable)"
 
+				# attributes for 'None' button
 				none_attr = {'title': "Set value to python 'None'"}
 				if value is None:
 					none_attr['data-none'] = '1'
 					none_attr['data-orig-none'] = '1'
 
-				input_field = bool_select if bool_select else INPUT(attrs=inp_attrs)
+				if input_field is None:
+					if inp_attrs['type'] == 'textarea':
+						input_field = TEXTAREA(inp_attrs['value'], attrs={'title': inp_attrs['title'], 'rows': '4'})
+					else:
+						input_field = INPUT(attrs=inp_attrs)
 
 				opt = DIV(
 					content=SPAN(name) + input_field + BUTTON("None", css=['btn', 'none-btn'], attrs=none_attr),

@@ -160,6 +160,10 @@ def task_with_typed_args(enabled: bool = True,
 	pass
 
 
+def task_with_multiline_string(text: str = "line 1\nline 2"):
+	pass
+
+
 def test_create_rerun_popup_html_with_typed_args():
 	original_setting = monitor._enhanced_rerun
 	monitor._enhanced_rerun = True
@@ -212,5 +216,17 @@ def test_create_rerun_popup_html_with_typed_args():
 		assert 'id="rerun-popup"' in html
 		assert 'id="popup-rerun-prompt"' in html
 		assert 'This job takes no arguments' in html
+	finally:
+		monitor._enhanced_rerun = original_setting
+
+
+def test_create_rerun_popup_html_with_multiline_string():
+	original_setting = monitor._enhanced_rerun
+	monitor._enhanced_rerun = True
+	try:
+		html = monitor._create_rerun_popup_html(task_with_multiline_string, {'text': 'hello\nworld'})
+		assert '<textarea' in html
+		assert 'rows="4"' in html
+		assert 'data-type="str"' in html
 	finally:
 		monitor._enhanced_rerun = original_setting
