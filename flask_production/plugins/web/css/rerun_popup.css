@@ -74,6 +74,7 @@
 .rerun-popup input[type="number"],
 .rerun-popup input[type="date"],
 .rerun-popup input[type="datetime-local"],
+.rerun-popup textarea,
 .rerun-bool-select {
     width: 100%;
     box-sizing: border-box;
@@ -91,6 +92,7 @@
 .rerun-popup input[type="number"]:focus,
 .rerun-popup input[type="date"]:focus,
 .rerun-popup input[type="datetime-local"]:focus,
+.rerun-popup textarea:focus,
 .rerun-bool-select:focus {
     outline: none;
     border-color: rgb(241, 118, 118);
@@ -98,6 +100,8 @@
 }
 .rerun-popup input:disabled,
 .rerun-popup input[disabled],
+.rerun-popup textarea:disabled,
+.rerun-popup textarea[disabled],
 .rerun-popup select:disabled,
 .rerun-popup select[disabled] {
     /* background: rgba(255,255,255,0.06); */

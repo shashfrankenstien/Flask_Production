@@ -51,7 +51,7 @@ function rerun_trigger(job_name, jobid) {
 
         popup.querySelectorAll(".none-btn").forEach(btn=>{
             const editable = btn.parentElement.hasAttribute('data-type') // has an editable type
-            const inp = btn.parentElement.querySelector("input, select")
+            const inp = btn.parentElement.querySelector("input, select, textarea")
 
             if (btn.hasAttribute('data-none') && editable) {
                 inp.setAttribute("disabled", "disabled")
@@ -82,7 +82,8 @@ function rerun_trigger(job_name, jobid) {
             let updated_types = {}
             for (let kwarg of popup.querySelectorAll(".rerun-kwarg")) {
                 const name = kwarg.getAttribute('data-key')
-                const new_val = kwarg.querySelector("input, select").value
+                const inp_elem = kwarg.querySelector("input, select, textarea")
+                const new_val = inp_elem.value
                 const orig_value = kwarg.getAttribute('data-value')
                 const none_btn = kwarg.querySelector(".none-btn")
                 const none_value = none_btn.hasAttribute('data-none')
@@ -94,10 +95,14 @@ function rerun_trigger(job_name, jobid) {
                         updated_types[name] = 'none' // inform the backend that the value is None
                     }
                 }
-                else if (orig_value !== new_val) {
-                    console.log("updated", orig_value, new_val)
-                    updated_kwargs[name] = new_val
-                    updated_types[name] = kwarg.getAttribute('data-type')
+                else if ((!inp_elem.disabled) && (orig_value !== new_val)) {
+                    const normalized_orig = String(orig_value ?? '').replace(/\r\n/g, '\n').trim()
+                    const normalized_new = String(new_val ?? '').replace(/\r\n/g, '\n').trim()
+                    if (normalized_orig !== normalized_new) {
+                        console.log("updated", orig_value, new_val)
+                        updated_kwargs[name] = new_val
+                        updated_types[name] = kwarg.getAttribute('data-type')
+                    }
                 }
             }
 

@@ -82,6 +82,9 @@ def TR(row, css=[], attrs={}):
 def INPUT(css=[], attrs={}):
 	return _TAG('input', content="", css=css, attrs=attrs)
 
+def TEXTAREA(content, css=[], attrs={}):
+	return _TAG('textarea', content, css=css, attrs=attrs)
+
 def BUTTON(content, css=[], attrs={}):
 	return _TAG('button', content, css, attrs)
 
