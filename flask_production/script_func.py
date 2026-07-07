@@ -57,7 +57,14 @@ class ScriptFunc(ModuleType):
                 output_list.append(text)
 
         try:
-            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
+            p = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,
+                env=os.environ.copy() # give the child its own environment copy without mutating the parent process
+            )
             stderr_lines = []
             stderr_thread = threading.Thread(
                 target=_read_stream,
