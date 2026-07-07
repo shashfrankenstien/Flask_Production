@@ -676,6 +676,10 @@ def test_run_script(script_dir):
 	script_name = "testscript.py"
 	failing_script_name = "testscript_failing.py"
 	import_name = "import_me"
+
+	env_test_script_name = "env_test.py"
+	os.environ['SCRIPT_ENV_TEST'] = "potatos are round"
+
 	error_count = 0
 	def _error_handler(e):
 		nonlocal error_count
@@ -700,6 +704,11 @@ def test_run_script(script_dir):
 		f.write("warnings.warn('warnings should not cause error')\n") #
 		f.write("print('Done')\n")
 
+	with open(os.path.join(script_dir, env_test_script_name), 'w') as f:
+		f.write(f"import os\n")
+		f.write(f"script_env = os.environ['SCRIPT_ENV_TEST']\n")
+		f.write(f"print(script_env)\n")
+
 	with open(os.path.join(script_dir, failing_script_name), 'w') as f:
 		f.write(f"1/0\n")
 
@@ -708,6 +717,8 @@ def test_run_script(script_dir):
 	j_parallel2 = s.every(1).run_script_parallel(os.path.basename(script_dir), script_name) # testing relative name
 	j = s.every(1).run_script(os.path.basename(script_dir), script_name) # relative script dir path
 	j = s.every(1).run_script(os.path.basename(script_dir), script_name, script_args=['--test_arg']) # relative script arguments
+
+	j_env = s.every(1).run_script_parallel(script_dir, env_test_script_name)
 
 	time.sleep(1.5)
 	s.check()
@@ -718,6 +729,11 @@ def test_run_script(script_dir):
 	assert(script_dir in j_parallel._run_info.log)
 	assert(script_dir in j_parallel2._run_info.log)
 	assert(script_dir in j._run_info.log)
+
+	# test env
+	assert(j_env._run_info.error == '')
+	assert('potatos are round' in j_env._run_info.log) # test env
+
 
 	assert('ZeroDivisionError' in j_parallel._run_info.error)
 	assert(j_parallel2._run_info.error == '')
