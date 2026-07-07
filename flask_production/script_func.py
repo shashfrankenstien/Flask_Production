@@ -1,13 +1,20 @@
-import os, sys
+import os
+import sys
 import subprocess
+import threading
 from types import ModuleType
 from typing import List
 
 
+# ModuleType is used here only to provide module-like metadata
+# (e.g. __module__ and __qualname__) for script jobs.
+# This class does not behave as a real importable Python module.
 class ScriptFunc(ModuleType):
 
-    def __init__(self, script_dir_path: str, script_name: str, script_args: List[str]=[]) -> None:
+    def __init__(self, script_dir_path: str, script_name: str, script_args: List[str]=None) -> None:
         script_dir_path = os.path.abspath(script_dir_path)
+        script_args = script_args or []
+
         if not os.path.isdir(script_dir_path):
             raise ValueError(f"'{script_dir_path}' not found")
 
@@ -40,22 +47,50 @@ class ScriptFunc(ModuleType):
         os.chdir(self.script_dir_path)
         cmd = [sys.executable, "-u", self.__file__] + self.script_args
 
+        def _read_stream(stream, output_list):
+            # Read lines as they arrive so stdout can be streamed live.
+            for line in iter(stream.readline, ""):
+                if not line:
+                    break
+                text = line.rstrip()
+                print(text)
+                output_list.append(text)
+
         try:
-            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            # Grab stdout line by line as it becomes available.  This will loop until p terminates.
+            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
+            stderr_lines = []
+            stderr_thread = threading.Thread(
+                target=_read_stream,
+                args=(p.stderr, stderr_lines),
+                daemon=True,
+            )
+            stderr_thread.start()
+
+            # Stream stdout while the process is running.
             while p.poll() is None:
-                l = p.stdout.readline().decode().strip() # This blocks until it receives a newline.
-                print(l)
-            # # When the subprocess terminates there might be unconsumed output
-            # # that still needs to be processed.
-            print(p.stdout.read().decode().strip())
-            err = p.stderr.read().decode().strip()
-            if p.returncode != 0:
-                e = err.split('\n')[-1]
-                raise Exception(f"{e}\n\nraised from subprocess:\n{err}")
-            else:
-                print(err) # not really an error? maybe a warning, or script returns 0 after failure :/
+                line = p.stdout.readline()
+                if line:
+                    print(line.rstrip())
+
+            # Wait for the process to finish, then drain any final stdout lines.
+            # Using .read() here would block until the process exits and would lose the live stdout streaming behavior.
             p.wait()
+            while True:
+                line = p.stdout.readline()
+                if not line:
+                    break
+                print(line.rstrip())
+            stderr_thread.join()
+
+            # Keep stderr separate so failures can be raised from that stream only.
+            err = "\n".join(stderr_lines).strip()
+            if p.returncode != 0:
+                if err:
+                    e = err.split('\n')[-1]
+                    raise Exception(f"{e}\n\nraised from subprocess:\n{err}")
+                raise Exception(f"subprocess exited with code {p.returncode}")
+            elif err:
+                print(err)
 
         finally:
             os.chdir(self.__wd)
