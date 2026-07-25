@@ -13,6 +13,7 @@ from flask import Flask, Blueprint, request, send_file, redirect
 from .html_templates import * # pylint: disable=unused-wildcard-import
 from ..sched import TaskScheduler
 from ..script_func import ScriptFunc
+from ..host_info import get_host_info
 
 
 class TaskMonitor:
@@ -246,11 +247,13 @@ class TaskMonitor:
 			out = {'name': self._display_name, 'summary': summary, 'details': details}
 			return json.dumps({'success': out}, default=str)
 
+
 	def __get_one_json(self, n):
 		j = self.sched.get_job_by_id(n)
 		if j is None:
 			return json.dumps({'error':'Invalid job id'})
 		return json.dumps({'success': j.to_dict()}, default=str)
+
 
 	def __show_all(self):
 		if len(self.sched.jobs)==0:
@@ -282,7 +285,7 @@ class TaskMonitor:
 				'End': TD(self.__date_fmt(end_dt), attrs=self.__date_sort_attr(end_dt)),
 				'Time Taken': TD(duration, attrs=self.__duration_sort_attr(jd)),
 				'Next Run': TD(next_dt_str, attrs=self.__date_sort_attr(next_dt)),
-				'More':TD("<a href='./{}'><button>show more</button><a>".format(jd['jobid'])) # use relating url. see self.__redirect_root
+				'More':TD(A(BUTTON("show more"), attrs={'href': './{}'.format(jd['jobid'])})), # use relative url. see self.__redirect_root
 			}))
 		rows = [TR(row.values()) for row in d]
 		head = [TH(th, default_sort=(th=="Next Run") ) for th in d[0].keys()]	# apply sorting to 'next run'
@@ -292,9 +295,11 @@ class TaskMonitor:
 
 		js_auto_reload_variables = '''let COUNT_DOWN = {};'''.format(self._homepage_refresh)
 
+		_host_info = get_host_info()
 		container = DIV(
 			'\n'.join([
 				H(2, "{} - Task Monitor".format(self._display_name)),
+				SPAN(_host_info['git_url'], attrs={'style': "color: grey"}),
 				SPAN("Running since {}".format(self._init_dt)),
 				refresh_text,
 				filter_input,
@@ -302,6 +307,7 @@ class TaskMonitor:
 			]),
 			css=["container", "container-vertical", 'center']
 		)
+
 
 		return HTML(
 			title=self.title,

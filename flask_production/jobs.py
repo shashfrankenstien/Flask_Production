@@ -7,12 +7,10 @@ import threading
 import inspect
 import hashlib
 import traceback
-import socket
-import subprocess
 import sys
 
 from . import print_logger
-
+from . import host_info
 
 
 class BadScheduleError(Exception):
@@ -61,39 +59,6 @@ RUNABLE_DAYS = {
 	'eom-weekday': _is_eom_weekday,
 	'eom-businessday': _is_eom_businessday,
 }
-
-
-_SERVER_INFO = {} # cache
-def _get_server_info():
-	'''called to get server and git info while reporting errors'''
-	global _SERVER_INFO
-
-	if _SERVER_INFO:
-		return _SERVER_INFO
-
-	hostname =  socket.gethostname()
-	_server_info = {
-		'hostname': hostname,
-		'ip_addr': socket.gethostbyname(hostname),
-		'git_url': 'Not found'
-	}
-	try:
-		git_remote = subprocess.run(['git', 'remote', '-v'], capture_output=True, text=True, check=True)
-		for line in git_remote.stdout.split('\n'):
-			line = line.strip()
-			if not line:
-				continue
-			name = line[:line.find('http')].strip()
-			if name == 'origin':
-				git_url = line[line.find('http'): line.find(".git ")].strip() + ".git"
-				# Remove user and token from git URL (handles https://user:token@host/path format)
-				git_url = re.sub(r'https?://[^@]*@', 'https://', git_url)
-				_server_info['git_url'] = git_url
-	except:
-		pass
-
-	_SERVER_INFO = _server_info # cache fields
-	return _SERVER_INFO
 
 
 
@@ -335,12 +300,12 @@ class Job(object):
 		except Exception:
 			traceback.print_exc()
 			print("Job", self.func_signature(), "failed!")
-			_server_info = _get_server_info()
+			_host_info = host_info.get_host_info()
 			err_msg = "Error in {func}\nhostname: {host}\nip addr: {ip}\ngit origin url: {git_url}\n\n\n{tb}".format(
 				func=self.func_signature(),
-				host=_server_info['hostname'],
-				ip=_server_info['ip_addr'],
-				git_url=_server_info['git_url'],
+				host=_host_info['hostname'],
+				ip=_host_info['ip_addr'],
+				git_url=_host_info['git_url'],
 				tb=traceback.format_exc()
 			)
 			self._run_info.set_error()
