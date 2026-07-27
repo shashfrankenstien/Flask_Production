@@ -299,7 +299,7 @@ class TaskMonitor:
 		container = DIV(
 			'\n'.join([
 				H(2, "{} - Task Monitor".format(self._display_name)),
-				SPAN(_host_info['git_url'], attrs={'style': "color: grey"}),
+				SPAN(_host_info['git_url'], css='git-url'),
 				SPAN("Running since {}".format(self._init_dt)),
 				refresh_text,
 				filter_input,
