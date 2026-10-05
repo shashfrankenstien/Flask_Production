@@ -7,13 +7,33 @@ import string
 import inspect
 
 from dateutil import tz
-from flask import Flask, Blueprint, request, send_file, redirect
+from flask import Flask, Blueprint, request, send_file, redirect, url_for
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 
 from .html_templates import * # pylint: disable=unused-wildcard-import
 from ..sched import TaskScheduler
 from ..script_func import ScriptFunc
 from ..host_info import get_host_info
+
+
+class ScriptNameHeaderCompat:
+	"""Translate legacy ``X-Script-Name`` for Werkzeug's ``ProxyFix``.
+
+	``ProxyFix`` reads ``X-Forwarded-Prefix``. Copy the legacy header into that
+	WSGI environ key only when the standard header is absent. This adapter must
+	wrap ``ProxyFix`` so the translation happens before it processes the request.
+	The prefix headers must be set by a trusted reverse proxy.
+	"""
+	def __init__(self, app):
+		self.app = app
+
+	def __call__(self, environ, start_response):
+		if not environ.get('HTTP_X_FORWARDED_PREFIX'):
+			legacy_prefix = environ.get('HTTP_X_SCRIPT_NAME')
+			if legacy_prefix:
+				environ['HTTP_X_FORWARDED_PREFIX'] = legacy_prefix
+		return self.app(environ, start_response)
 
 
 class TaskMonitor:
@@ -61,6 +81,9 @@ class TaskMonitor:
 		self._can_rerun = can_rerun
 		self._can_disable = can_disable
 		self._enhanced_rerun = enhanced_rerun
+		self.app.wsgi_app = ScriptNameHeaderCompat(
+			ProxyFix(self.app.wsgi_app, x_prefix=1)
+		)
 
 		bp = Blueprint('taskmonitor_bp', __name__, url_prefix=f"/{self._endpoint}")
 
@@ -92,18 +115,11 @@ class TaskMonitor:
 
 	def __redirect_root(self):
 		'''
-		[6/25/2026]
-		redirect to "/" because we need the browser to treat this endpoint as a folder and not a file.
-		this will enable js, css and fetch requests to be relative.
-
-		Note: behind a reverse proxy. redirects don't work right if the endpoint is rewritten and not served from root.
-		So we use the conventional 'X-Script-Name' header to assist.
+		Redirect to the trailing-slash route so browser-relative asset and link URLs
+		resolve beneath the monitor path. ``url_for`` includes the external mount
+		prefix from ``SCRIPT_NAME``, set by ``ProxyFix``.
 		'''
-		redir_path = request.path+"/"
-		script_name_prefix = request.headers.get('X-Script-Name') or None
-		if isinstance(script_name_prefix, str):
-			redir_path = script_name_prefix.strip() + redir_path
-		return redirect(redir_path, code=301)
+		return redirect(url_for('taskmonitor_bp.index'), code=301)
 
 
 	def __js_src_wrap(self, filename):

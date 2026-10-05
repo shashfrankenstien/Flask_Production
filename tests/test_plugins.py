@@ -60,6 +60,14 @@ def test_blankpage(client):
 	assert(homepage.status_code==200)
 	assert(homepage.data.decode().lower()=='nothing here')
 
+@pytest.mark.parametrize('prefix_header', ['X-Script-Name', 'X-Forwarded-Prefix'])
+def test_monitor_root_redirect_with_proxy_prefix(client, prefix_header):
+	response = client.get(
+		"/{}".format(monitor._endpoint),
+		headers={prefix_header: '/tasks'},
+	)
+	assert response.status_code == 301
+	assert response.headers['Location'] == '/tasks/@taskmonitor/'
 
 def test_monitor_homepage(client):
 	sched.every("day").at("8:00").do(another_task)
