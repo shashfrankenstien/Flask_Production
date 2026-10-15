@@ -303,19 +303,22 @@ class TaskMonitor:
 				'Next Run': TD(next_dt_str, attrs=self.__date_sort_attr(next_dt)),
 				'More':TD(A(BUTTON("show more"), attrs={'href': './{}'.format(jd['jobid'])})), # use relative url. see self.__redirect_root
 			}))
+
+		_host_info = get_host_info()
+
 		rows = [TR(row.values()) for row in d]
 		head = [TH(th, default_sort=(th=="Next Run") ) for th in d[0].keys()]	# apply sorting to 'next run'
 		all_jobs_table = TABLE(thead=THEAD(head), tbody=TBODY(rows), elem_id='all-jobs', css='all-jobs')
+		git_url = A(_host_info['git_url'], css='git-url', attrs={'href': _host_info['git_url'], 'target':"_blank", 'rel':"noopener noreferrer"})
 		refresh_text = SMALL(f"Auto-refresh in {SPAN(self._homepage_refresh, attrs={'id': 'refresh-msg'})} seconds")
 		filter_input = INPUT(attrs={'type':'text', 'placeholder':'Filter', 'id': 'filter-box'})
 
 		js_auto_reload_variables = '''let COUNT_DOWN = {};'''.format(self._homepage_refresh)
 
-		_host_info = get_host_info()
 		container = DIV(
 			'\n'.join([
 				H(2, "{} - Task Monitor".format(self._display_name)),
-				SPAN(_host_info['git_url'], css='git-url'),
+				git_url,
 				SPAN("Running since {}".format(self._init_dt)),
 				refresh_text,
 				filter_input,
