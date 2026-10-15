@@ -24,17 +24,11 @@ def get_host_info():
 		pass
 
 	try:
-		git_remote = subprocess.run(['git', 'remote', '-v'], capture_output=True, text=True, check=True)
-		for line in git_remote.stdout.split('\n'):
-			line = line.strip()
-			if not line:
-				continue
-			name = line[:line.find('http')].strip()
-			if name == 'origin':
-				git_url = line[line.find('http'): line.find(".git ")].strip() + ".git"
-				# Remove user and token from git URL (handles https://user:token@host/path format)
-				git_url = re.sub(r'https?://[^@]*@', 'https://', git_url)
-				_host_info['git_url'] = git_url
+		git_remote = subprocess.run(['git', 'remote', 'get-url', 'origin'], capture_output=True, text=True, check=True)
+		git_url = git_remote.stdout.strip()
+		git_url = re.sub(r'https?://[^@]*@', 'https://', git_url)
+		_host_info['git_url'] = git_url
+
 	except Exception:
 		pass
 
