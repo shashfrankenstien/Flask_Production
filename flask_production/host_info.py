@@ -26,6 +26,9 @@ def get_host_info():
 	try:
 		git_remote = subprocess.run(['git', 'remote', 'get-url', 'origin'], capture_output=True, text=True, check=True)
 		git_url = git_remote.stdout.strip()
+		# Remove user and token from git URL (handles https://user:token@host/path format)
+		# The pattern matches `http://` or `https://`, then all characters up to
+		# the `@` separator; replacing it removes embedded credentials.
 		git_url = re.sub(r'https?://[^@]*@', 'https://', git_url)
 		_host_info['git_url'] = git_url
 
@@ -34,4 +37,3 @@ def get_host_info():
 
 	_HOST_INFO = _host_info # cache fields
 	return _HOST_INFO
-
