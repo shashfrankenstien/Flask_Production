@@ -133,6 +133,10 @@ input {
     display:none;
 }
 
+.git-url {
+    color: grey;
+    padding-bottom: 0.65rem;
+}
 
 .container {
     width:100%;
