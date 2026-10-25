@@ -129,9 +129,7 @@ class SQLAlchemyState(BaseStateHandler):
 		with self._engine.connect() as conn:
 			db_states = conn.execute(select(self.fp_state).where(self.fp_state.c.app_id == self._cur_app_unique_info_hash)).all()
 
-		states = {}
-		for s in db_states:
-			states[s.signature] = s
+		states = {s.signature: s for s in db_states}
 
 		found_states = []
 		for j in jobs_list.copy(): # work on a shallow copy of this list - safer in case the list changes. TODO: maybe use locks instead?

@@ -10,7 +10,7 @@ import traceback
 import sys
 
 from . import print_logger
-from . import host_info
+from .state import host_info
 
 
 class BadScheduleError(Exception):
