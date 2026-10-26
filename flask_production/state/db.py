@@ -6,10 +6,13 @@ from .base import BaseStateHandler
 
 class SQLAlchemyState(BaseStateHandler):
 
-	def __init__(self, uri) -> None:
+	def __init__(self, uri, hist_limit=30) -> None:
 		super().__init__()
 		self.uri = uri
 		self._validate_uri()
+		if isinstance(hist_limit, bool) or not isinstance(hist_limit, int) or hist_limit < 0:
+			raise ValueError("hist_limit must be a non-negative integer")
+		self._hist_limit = hist_limit
 		self.__tables_created = False
 
 		try: # make sure required packages are installed
@@ -47,7 +50,7 @@ class SQLAlchemyState(BaseStateHandler):
 		self.__tables_created = True
 
 		from sqlalchemy import create_engine, MetaData
-		from sqlalchemy import Table, Column, String, Text, DateTime, Boolean
+		from sqlalchemy import Table, Column, String, Text, DateTime, Boolean, Integer, Index
 		from sqlalchemy import select, insert, update
 		from sqlalchemy_utils import database_exists, create_database
 
@@ -75,6 +78,25 @@ class SQLAlchemyState(BaseStateHandler):
 			Column('end_dt', DateTime),
 			Column('disabled', Boolean),
 		)
+		self.fp_state_hist = Table(
+			'fp_state_hist', self._meta,
+			Column('id', Integer, primary_key=True, autoincrement=True),
+			Column('app_id', String(50), nullable=False),
+			Column('signature', String(50), nullable=False),
+			Column('archived_at', DateTime, nullable=False),
+			Column('readable', String(200)),
+			Column('log', Text),
+			Column('err', Text),
+			Column('start_dt', DateTime),
+			Column('end_dt', DateTime),
+			Column('disabled', Boolean),
+		)
+		Index(
+			'ix_fp_state_hist_app_signature_archived',
+			self.fp_state_hist.c.app_id,
+			self.fp_state_hist.c.signature,
+			self.fp_state_hist.c.archived_at
+		)
 		self._meta.create_all(self._engine)
 
 		# update info to fp_apps table
@@ -99,12 +121,30 @@ class SQLAlchemyState(BaseStateHandler):
 		signature = job_obj.signature_hash()
 		logs = job_obj._logs_to_dict()
 
-		with self._engine.connect() as conn:
-			stmt = select(self.fp_state).where(self.fp_state.c.signature == signature, self.fp_state.c.app_id == self._cur_app_unique_info_hash)
+		with self._engine.begin() as conn: # engine.begin() automatically commits when with block exits
+			stmt = select(self.fp_state).where(
+				self.fp_state.c.signature == signature,
+				self.fp_state.c.app_id == self._cur_app_unique_info_hash
+			)
 			db_job = conn.execute(stmt).all()
 			if len(db_job) == 1: # has to return only 1 element as we are querying on primary keys
-				# print(db_job[0])
-				update_stmt = update(self.fp_state).where(self.fp_state.c.signature == signature, self.fp_state.c.app_id == self._cur_app_unique_info_hash)
+				if self._hist_limit > 0:
+					old_state = db_job[0]
+					conn.execute(insert(self.fp_state_hist).values(
+						app_id=self._cur_app_unique_info_hash,
+						signature=signature,
+						archived_at=dt.now(),
+						readable=old_state.readable,
+						log=old_state.log,
+						err=old_state.err,
+						start_dt=old_state.start_dt,
+						end_dt=old_state.end_dt,
+						disabled=old_state.disabled
+					))
+				update_stmt = update(self.fp_state).where(
+					self.fp_state.c.signature == signature,
+					self.fp_state.c.app_id == self._cur_app_unique_info_hash
+				)
 
 			else: # no state exists. insert!
 				update_stmt = insert(self.fp_state)
@@ -119,20 +159,39 @@ class SQLAlchemyState(BaseStateHandler):
 				end_dt=logs.get('end'),
 				disabled=job_obj.is_disabled
 			))
-			conn.commit()
+			if self._hist_limit == 0:
+				conn.execute(
+					self.fp_state_hist.delete().where(
+						self.fp_state_hist.c.app_id == self._cur_app_unique_info_hash,
+						self.fp_state_hist.c.signature == signature
+					)
+				)
+			else:
+				expired_ids = select(self.fp_state_hist.c.id).where(
+					self.fp_state_hist.c.app_id == self._cur_app_unique_info_hash,
+					self.fp_state_hist.c.signature == signature
+				).order_by(
+					self.fp_state_hist.c.archived_at.desc(),
+					self.fp_state_hist.c.id.desc()
+				).offset(self._hist_limit) # offset here exclues self._hist_limit number of rows and takes everything older
+				conn.execute(
+					self.fp_state_hist.delete().where(self.fp_state_hist.c.id.in_(expired_ids))
+				)
 
 
 	def restore_all_job_logs(self, jobs_list):
 		self._ensure_create_table()
 		from sqlalchemy import select, delete
 
+		jobs = jobs_list.copy()
+		job_signatures = {job.signature_hash() for job in jobs}
 		with self._engine.connect() as conn:
 			db_states = conn.execute(select(self.fp_state).where(self.fp_state.c.app_id == self._cur_app_unique_info_hash)).all()
 
 		states = {s.signature: s for s in db_states}
 
 		found_states = []
-		for j in jobs_list.copy(): # work on a shallow copy of this list - safer in case the list changes. TODO: maybe use locks instead?
+		for j in jobs:
 			signature = j.signature_hash()
 			if signature in states:
 				st = states[signature]
@@ -148,10 +207,22 @@ class SQLAlchemyState(BaseStateHandler):
 				# print("restored", j)
 
 		# clean up other states that did not match current jobs list (possibly stale)
-		with self._engine.connect() as conn:
+		with self._engine.begin() as conn:
 			for sig, st in states.items():
 				if sig not in found_states:
-					conn.execute(delete(self.fp_state).where(self.fp_state.c.signature == sig))
-			conn.commit()
+					conn.execute(delete(self.fp_state).where(
+						self.fp_state.c.signature == sig,
+						self.fp_state.c.app_id == self._cur_app_unique_info_hash
+					))
+
+			if job_signatures:
+				conn.execute(delete(self.fp_state_hist).where(
+					self.fp_state_hist.c.app_id == self._cur_app_unique_info_hash,
+					self.fp_state_hist.c.signature.not_in(job_signatures)
+				))
+			else:
+				conn.execute(delete(self.fp_state_hist).where(
+					self.fp_state_hist.c.app_id == self._cur_app_unique_info_hash
+				))
 
 		print("* scheduler state restored from database *")

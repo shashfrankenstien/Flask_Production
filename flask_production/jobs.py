@@ -8,6 +8,7 @@ import inspect
 import hashlib
 import traceback
 import sys
+from enum import Enum
 
 from . import print_logger
 from .state import host_info
@@ -60,6 +61,10 @@ RUNABLE_DAYS = {
 	'eom-businessday': _is_eom_businessday,
 }
 
+class CallbackTypes(str, Enum):
+	ON_COMPLETE = "oncomplete"
+	ON_ENABLE = "onenable"
+	ON_DISABLE = "ondisable"
 
 
 class Job(object):
@@ -118,17 +123,17 @@ class Job(object):
 		self._err_handler = err_handler
 		return self
 
-	def register_callback(self, cb, cb_type="oncomplete"):
+	def register_callback(self, cb, cb_type=CallbackTypes.ON_COMPLETE):
 		'''
 		register a callback function to be called when job completes
 		- this callback function should expect a job object as argument
 		'''
 		if callable(cb) and len(inspect.signature(cb).parameters)==1:
-			if cb_type == 'oncomplete':
+			if cb_type == CallbackTypes.ON_COMPLETE:
 				self._on_complete_cbs.append(cb)
-			elif cb_type == 'ondisable':
+			elif cb_type == CallbackTypes.ON_ENABLE:
 				self._on_enable_cbs.append(cb)
-			elif cb_type == 'onenable':
+			elif cb_type == CallbackTypes.ON_DISABLE:
 				self._on_disable_cbs.append(cb)
 			else:
 				raise ValueError("unsupported cb_type")

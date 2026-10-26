@@ -21,6 +21,9 @@ from .jobs import (
 	AsyncJobWrapper,
 	NeverJob,
 
+	# callbacks
+	CallbackTypes,
+
 	# exceptions
 	BadScheduleError
 )
@@ -223,9 +226,9 @@ class TaskScheduler:
 		)
 		# register callbacks to save job logs to file so it can be restored on app restart
 		if isinstance(self._state_handler, BaseStateHandler):
-			j.register_callback(self._state_handler.save_job_logs, cb_type="onenable")
-			j.register_callback(self._state_handler.save_job_logs, cb_type="ondisable")
-			j.register_callback(self._state_handler.save_job_logs, cb_type="oncomplete")
+			j.register_callback(self._state_handler.save_job_logs, cb_type=CallbackTypes.ON_ENABLE)
+			j.register_callback(self._state_handler.save_job_logs, cb_type=CallbackTypes.ON_DISABLE)
+			j.register_callback(self._state_handler.save_job_logs, cb_type=CallbackTypes.ON_COMPLETE)
 
 		self.__reset_defaults()
 		print(j)

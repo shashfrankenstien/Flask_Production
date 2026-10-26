@@ -1,11 +1,12 @@
 import os
 import sys
 import hashlib
+from abc import ABC, abstractmethod
 
 from .host_info import get_host_info
 
 
-class BaseStateHandler:
+class BaseStateHandler(ABC):
 
 	def __init__(self) -> None:
 		# multiple apps / programs may use this library
@@ -27,8 +28,10 @@ class BaseStateHandler:
 		self._cur_app_unique_info_hash = hashlib.sha1(':'.join(self._cur_app_unique_info).encode()).hexdigest()
 
 
+	@abstractmethod
 	def save_job_logs(self, job_obj):
-		pass
+		"""Persist the state for a job."""
 
+	@abstractmethod
 	def restore_all_job_logs(self, jobs_list):
-		pass
+		"""Restore persisted state for the supplied jobs."""
