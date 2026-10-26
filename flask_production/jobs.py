@@ -1,7 +1,7 @@
 import time
 from datetime import timedelta, datetime as dt
-from monthdelta import monthdelta
 from dateutil import tz
+from dateutil.relativedelta import relativedelta
 import re
 import threading
 import inspect
@@ -20,7 +20,7 @@ class BadScheduleError(Exception):
 
 
 def _get_eom(d):
-	return ((d + monthdelta(1)).replace(day=1) - timedelta(days=1))
+	return ((d + relativedelta(months=1)).replace(day=1) - timedelta(days=1))
 
 def _is_eom(d, hols):
 	eom = _get_eom(d)
@@ -479,7 +479,7 @@ class MonthlyJob(Job):
 		last_day_case = interval > sched_day.day and _get_eom(sched_day).day == sched_day.day and _pure_time_passed
 
 		if day_passed or time_passed or last_day_case:
-			sched_day += monthdelta(1) # switch to next month
+			sched_day += relativedelta(months=1) # switch to next month
 
 		# handle cases where the interval day doesn't occur in all months (ex: 31st)
 		if interval > _get_eom(sched_day).day:
@@ -487,7 +487,7 @@ class MonthlyJob(Job):
 				interval = _get_eom(sched_day).day # if strict is false, run on what ever is last day of the month
 			else: # strict
 				while interval > _get_eom(sched_day).day: # run only on months which have the date
-					sched_day += monthdelta(1)
+					sched_day += relativedelta(months=1)
 
 		n = self.attach_upcoming_run_time(sched_day.replace(day=interval))
 		self.next_timestamp = self.to_timestamp(n)
