@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from flask_production import host_info
+from flask_production.state import host_info
 
 
 @pytest.mark.parametrize(

@@ -14,7 +14,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from .html_templates import * # pylint: disable=unused-wildcard-import
 from ..sched import TaskScheduler
 from ..script_func import ScriptFunc
-from ..host_info import get_host_info
+from ..state.host_info import get_host_info
 
 
 class ScriptNameHeaderCompat:

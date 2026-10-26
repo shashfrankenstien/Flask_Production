@@ -1,16 +1,17 @@
 import time
 from datetime import timedelta, datetime as dt
-from monthdelta import monthdelta
 from dateutil import tz
+from dateutil.relativedelta import relativedelta
 import re
 import threading
 import inspect
 import hashlib
 import traceback
 import sys
+from enum import Enum
 
 from . import print_logger
-from . import host_info
+from .state import host_info
 
 
 class BadScheduleError(Exception):
@@ -19,7 +20,7 @@ class BadScheduleError(Exception):
 
 
 def _get_eom(d):
-	return ((d + monthdelta(1)).replace(day=1) - timedelta(days=1))
+	return ((d + relativedelta(months=1)).replace(day=1) - timedelta(days=1))
 
 def _is_eom(d, hols):
 	eom = _get_eom(d)
@@ -60,6 +61,10 @@ RUNABLE_DAYS = {
 	'eom-businessday': _is_eom_businessday,
 }
 
+class CallbackTypes(str, Enum):
+	ON_COMPLETE = "oncomplete"
+	ON_ENABLE = "onenable"
+	ON_DISABLE = "ondisable"
 
 
 class Job(object):
@@ -118,17 +123,17 @@ class Job(object):
 		self._err_handler = err_handler
 		return self
 
-	def register_callback(self, cb, cb_type="oncomplete"):
+	def register_callback(self, cb, cb_type=CallbackTypes.ON_COMPLETE):
 		'''
 		register a callback function to be called when job completes
 		- this callback function should expect a job object as argument
 		'''
 		if callable(cb) and len(inspect.signature(cb).parameters)==1:
-			if cb_type == 'oncomplete':
+			if cb_type == CallbackTypes.ON_COMPLETE:
 				self._on_complete_cbs.append(cb)
-			elif cb_type == 'ondisable':
+			elif cb_type == CallbackTypes.ON_ENABLE:
 				self._on_enable_cbs.append(cb)
-			elif cb_type == 'onenable':
+			elif cb_type == CallbackTypes.ON_DISABLE:
 				self._on_disable_cbs.append(cb)
 			else:
 				raise ValueError("unsupported cb_type")
@@ -474,7 +479,7 @@ class MonthlyJob(Job):
 		last_day_case = interval > sched_day.day and _get_eom(sched_day).day == sched_day.day and _pure_time_passed
 
 		if day_passed or time_passed or last_day_case:
-			sched_day += monthdelta(1) # switch to next month
+			sched_day += relativedelta(months=1) # switch to next month
 
 		# handle cases where the interval day doesn't occur in all months (ex: 31st)
 		if interval > _get_eom(sched_day).day:
@@ -482,7 +487,7 @@ class MonthlyJob(Job):
 				interval = _get_eom(sched_day).day # if strict is false, run on what ever is last day of the month
 			else: # strict
 				while interval > _get_eom(sched_day).day: # run only on months which have the date
-					sched_day += monthdelta(1)
+					sched_day += relativedelta(months=1)
 
 		n = self.attach_upcoming_run_time(sched_day.replace(day=interval))
 		self.next_timestamp = self.to_timestamp(n)

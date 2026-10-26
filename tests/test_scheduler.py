@@ -7,12 +7,11 @@ import threading
 import json
 import io
 from datetime import datetime as dt, timedelta
-from monthdelta import monthdelta
 from dateutil.parser import parse as date_parse
 from dateutil import tz
-import pytest
 from dateutil.easter import easter
 from dateutil.relativedelta import relativedelta, FR
+import pytest
 
 from flask_production import TaskScheduler
 from flask_production.jobs import Job
@@ -201,18 +200,18 @@ def test_monthly():
 
 	# yesterday's date is scheduled to next month
 	j = s.every(day_suffixed_str(yesterday.day)).strict_date(False).at("23:59").do(job, x="hello", y="world")
-	assert(j.next_timestamp==dt.timestamp(yesterday+monthdelta(1)))
+	assert(j.next_timestamp==dt.timestamp(yesterday+relativedelta(months=1)))
 
 	# strict_date is False. So 31st will just be the last day of the month
 	j = s.every("31st").strict_date(False).at("23:59").do(job, x="hello", y="world")
-	eom = (dt.now() + monthdelta(1)).replace(day=1, hour=23, minute=59, second=0, microsecond=0) - timedelta(days=1)
+	eom = (dt.now() + relativedelta(months=1)).replace(day=1, hour=23, minute=59, second=0, microsecond=0) - timedelta(days=1)
 	assert(j.next_timestamp==dt.timestamp(eom))
 
 	# strict_date is True. So next schedule will be when month has 31st
 	j = s.every("31st").strict_date(True).at("23:59").do(job, x="hello", y="world")
 	day = dt.now()
-	while ((day + monthdelta(1)).replace(day=1) - timedelta(days=1)).day != 31:
-		day += monthdelta(1)
+	while ((day + relativedelta(months=1)).replace(day=1) - timedelta(days=1)).day != 31:
+		day += relativedelta(months=1)
 	assert(j.next_timestamp==dt.timestamp(day.replace(day=31, hour=23, minute=59, second=0, microsecond=0)))
 
 	with pytest.raises(BadScheduleError):
