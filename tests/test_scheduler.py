@@ -236,7 +236,7 @@ def test_repeat_parallel():
 	sleep_time = 1
 	s = TaskScheduler()
 	s.every(sleep_time).do_parallel(job, x="hello", y="world")
-	s.every(sleep_time).do_parallel(job, x="hello", y="world")
+	s.every(sleep_time).do_parallel(job, x="hello", y="world2")
 	ts = s.jobs[0].next_timestamp
 	d = time.time()
 	assert (abs(ts - (d+sleep_time)) < 0.1)
