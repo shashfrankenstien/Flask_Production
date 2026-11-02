@@ -53,7 +53,7 @@ CherryFlask
 
 .. code:: python
 
-   CherryFlask(app, scheduler=None, silent=False, timeout=60)
+   CherryFlask(app, scheduler=None, silent=False, timeout=60, blocking=True)
 
 Parameters:
 
@@ -61,6 +61,10 @@ Parameters:
 - **scheduler** *(TaskScheduler)*: optional scheduler to run alongside the app
 - **silent** *(bool)*: suppress request logging
 - **timeout** *(int)*: CherryPy socket timeout in seconds
+- **blocking** *(bool)*: keep ``run()`` on the calling thread until the server exits
+      - default True
+      - when False, ``run()`` returns after starting CherryPy and the scheduler runs in a background thread
+      - call ``cherry.stop()`` when the application should shut down
 
 .. code:: python
 
@@ -70,6 +74,16 @@ Parameters:
    app = Flask(__name__)
    cherry = CherryFlask(app)
    cherry.run(host="0.0.0.0", port=8080, threads=5, debug=False)
+
+For non-blocking startup, pass ``blocking=False``. The caller must keep the process alive
+and call ``stop()`` during shutdown:
+
+.. code:: python
+
+   cherry = CherryFlask(app, blocking=False)
+   cherry.run(host="0.0.0.0", port=8080)
+   # Continue running other application code.
+   cherry.stop()
 
 
 
