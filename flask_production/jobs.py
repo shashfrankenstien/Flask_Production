@@ -101,7 +101,10 @@ class Job(object):
 		self._on_disable_cbs = []
 
 	def init(self, calendar, tzname=None, generic_err_handler=None, startup_grace_mins=0):
-		'''initialize extra attributes of job'''
+		'''initialize extra attributes of job.
+		Other job subclasses may override __init__,
+		so this init() gives us a second chance to set some common variables.
+		it's called by the scheduler'''
 		self.calendar = calendar
 		self.tzname = tzname
 		self._generic_err_handler = generic_err_handler
@@ -364,6 +367,10 @@ class Job(object):
 	def _logs_from_dict(self, logs_dict):
 		if hasattr(self, '_run_info'):
 			self._run_info.from_dict(logs_dict)
+
+	def _logs_hist_from_list(self, logs_hist):
+		if hasattr(self, '_run_info'):
+			self._run_info.restore_hist(logs_hist)
 
 	def to_dict(self):
 		'''property to access job info dict'''

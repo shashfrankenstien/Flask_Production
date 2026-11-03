@@ -6,6 +6,7 @@ from dateutil import tz
 from contextlib import contextmanager
 import traceback
 import logging
+import copy
 
 from ._capture import print_capture
 
@@ -29,9 +30,10 @@ class _PrintLogger(object):
 	'''
 
 	def __init__(self, tzname=None):
-		self._lock = threading.Lock()
+		self._lock = threading.RLock()
 		self._reset()
 		self._tzname = tzname
+		self._history = {}
 
 	@property
 	def log(self):
@@ -87,6 +89,7 @@ class _PrintLogger(object):
 			yield
 		with self._lock:
 			self._ended_at = dt.now(tz=tz.gettz(self._tzname))
+			self._store_hist(self.to_dict())
 
 	def set_error(self):
 		'''called when job throws error'''
@@ -109,3 +112,17 @@ class _PrintLogger(object):
 				self._err_log = info_dict['err']
 				self._started_at = info_dict['start']
 				self._ended_at = info_dict['end']
+
+	#  region History
+	def _store_hist(self, logs_dict):
+		self._history[logs_dict['end']] = logs_dict
+
+
+	def restore_hist(self, logs_list):
+		with self._lock:
+			for log in logs_list:
+				self._store_hist(log)
+
+	def get_history(self):
+		with self._lock:
+			return copy.deepcopy(self._history) # deepcopy so caller can't mutate history

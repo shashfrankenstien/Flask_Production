@@ -1,3 +1,4 @@
+from collections import defaultdict
 from datetime import datetime as dt
 
 from .base import BaseStateHandler
@@ -6,7 +7,7 @@ from .base import BaseStateHandler
 
 class SQLAlchemyState(BaseStateHandler):
 
-	def __init__(self, uri, hist_limit=30) -> None:
+	def __init__(self, uri, hist_limit=10) -> None:
 		super().__init__()
 		self.uri = uri
 		self._validate_uri()
@@ -179,32 +180,45 @@ class SQLAlchemyState(BaseStateHandler):
 				)
 
 
+	def __row_to_log_dict(self, row):
+		return {
+			'log': row.log,
+			'err': row.err,
+			'start': row.start_dt,
+			'end': row.end_dt,
+		}
+
+
 	def restore_all_job_logs(self, jobs_list):
 		self._ensure_create_table()
 		from sqlalchemy import select, delete
 
 		jobs = jobs_list.copy()
-		job_signatures = {job.signature_hash() for job in jobs}
 		with self._engine.connect() as conn:
 			db_states = conn.execute(select(self.fp_state).where(self.fp_state.c.app_id == self._cur_app_unique_info_hash)).all()
+			db_hist = conn.execute(select(self.fp_state_hist).where(self.fp_state_hist.c.app_id == self._cur_app_unique_info_hash)).all()
 
 		states = {s.signature: s for s in db_states}
+		hist_states = defaultdict(list)
+		for h in db_hist:
+			hist_states[h.signature].append(self.__row_to_log_dict(h))
 
 		found_states = []
+		job_signatures = set()
 		for j in jobs:
 			signature = j.signature_hash()
+			job_signatures.add(signature)
+
 			if signature in states:
 				st = states[signature]
-				j._logs_from_dict({
-					'log': st.log,
-					'err': st.err,
-					'start': st.start_dt,
-					'end': st.end_dt,
-				})
+				j._logs_from_dict(self.__row_to_log_dict(st))
 				if st.disabled:
 					j.disable()
 				found_states.append(signature)
 				# print("restored", j)
+
+			if signature in hist_states:
+				j._logs_hist_from_list(hist_states[signature])
 
 		# clean up other states that did not match current jobs list (possibly stale)
 		with self._engine.begin() as conn:

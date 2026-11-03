@@ -134,10 +134,13 @@ def test_filesystem_state_cleanup_removes_history_for_unregistered_jobs(tmp_path
 		state.save_job_logs(JobState(signature, "first"))
 		state.save_job_logs(JobState(signature, "second"))
 
-	state.restore_all_job_logs([JobState("registered-job", "initial")])
+	restored_job = JobState("registered-job", "initial")
+	state.restore_all_job_logs([restored_job])
 
 	assert len(os.listdir(state._job_hist_dir)) == 1
 	assert os.listdir(state._job_hist_dir)[0].startswith("registered-job_")
+	assert len(restored_job.restored_history) == 1
+	assert restored_job.restored_history[0]['log'] == "first"
 
 
 @pytest.mark.parametrize("hist_limit", [-1, 1.5, "2"])

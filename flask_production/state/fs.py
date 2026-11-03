@@ -17,7 +17,7 @@ def _read_pickle(path):
 
 class FileSystemState(BaseStateHandler):
 
-	def __init__(self, uri=None, hist_limit=30) -> None:
+	def __init__(self, uri=None, hist_limit=10) -> None:
 		super().__init__()
 		if uri is None:
 			uri = os.path.join(self._get_current_app_data_directory(), "states")
@@ -125,6 +125,13 @@ class FileSystemState(BaseStateHandler):
 			for j in jobs:
 				sig = j.signature_hash()
 				if sig in hist_files:
+					hist_logs = []
+					for f in hist_files[sig]:
+						hist_state = _read_pickle(os.path.join(self._job_hist_dir, f))
+						if 'logs' in hist_state:
+							hist_logs.append(hist_state['logs'])
+
+					j._logs_hist_from_list(hist_logs)
 					files_to_retain += hist_files[sig] # mark these as files to keep
 
 			# clean up other states that did not match current jobs list (possible stale)

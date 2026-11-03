@@ -105,6 +105,8 @@ def test_sqlalchemy_state_restore_removes_history_for_removed_jobs(tmp_path):
 		assert [row.signature for row in rows] == ["kept-job"]
 		assert [row.signature for row in current_rows] == ["kept-job"]
 		assert restored_job.restored_logs['log'] == "kept-current"
+		assert len(restored_job.restored_history) == 1
+		assert restored_job.restored_history[0]['log'] == "kept-previous"
 		assert restored_job.is_disabled is True
 		assert [row.log for row in other_app_history] == ["other-app-previous"]
 		assert [row.log for row in other_app_current] == ["other-app-current"]
